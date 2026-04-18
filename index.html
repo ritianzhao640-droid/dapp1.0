@@ -282,7 +282,7 @@
         <div id="page-rewards" class="page space-y-4">
             <div class="card p-5 mt-4">
                 <h3 class="font-semibold text-gray-800 mb-4">可领取奖励</h3>
-                <div class="text-3xl font-bold gradient-green-text mb-4">$1,247.50</div>
+                <div class="text-3xl font-bold gradient-green-text mb-4" id="totalRewardAmount">--</div>
                 <button class="btn-primary w-full py-3.5 text-base">一键领取全部</button>
             </div>
 
@@ -359,7 +359,7 @@
                             <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">REMIX</span>
                         </div>
                         <div class="flex justify-between mt-2 text-xs text-gray-400">
-                            <span>余额: 50,000 REMIX</span>
+                            <span>余额: <span id="burnTokenBalance">--</span> REMIX</span>
                             <button class="text-pink-500 font-medium" onclick="setMaxBurn()">最大</button>
                         </div>
                     </div>
@@ -405,8 +405,8 @@
                     </div>
                     <div class="bg-mint-50 rounded-xl p-4">
                         <div class="text-xs text-gray-500 mb-1">销毁权重</div>
-                        <div class="text-xl font-bold text-mint-600">5.24%</div>
-                        <div class="text-xs text-gray-400">排名 #12</div>
+                        <div class="text-xl font-bold text-mint-600" id="myBurnWeightPct">--</div>
+                        <div class="text-xs text-gray-400" id="myBurnRankText">连接钱包查看</div>
                     </div>
                 </div>
             </div>
@@ -435,12 +435,12 @@
                 <div class="bg-gray-50 rounded-xl p-4 mb-4">
                     <div class="flex justify-between text-sm mb-2">
                         <span class="text-gray-500">邀请激活门槛</span>
-                        <span class="font-medium"><span class="text-pink-600">50万</span> / 100万 REMIX</span>
+                        <span class="font-medium" id="inviteThresholdText"><span class="text-pink-600">--</span> / -- REMIX</span>
                     </div>
                     <div class="progress-bar">
-                        <div class="progress-fill gradient-green" style="width: 50%"></div>
+                        <div class="progress-fill gradient-green" id="inviteThresholdProgress" style="width: 0%"></div>
                     </div>
-                    <p class="text-xs text-gray-400 mt-2">累计销毁达到 100万 REMIX 可激活邀请资格</p>
+                    <p class="text-xs text-gray-400 mt-2">累计销毁达到 <span id="inviteActivationThresholdDisplay">--</span> REMIX 可激活邀请资格</p>
                 </div>
 
                 <!-- 我的邀请码 -->
@@ -504,23 +504,23 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div class="bg-pink-50 rounded-xl p-4">
                         <div class="text-xs text-gray-500 mb-1">总销毁量</div>
-                        <div class="text-lg font-bold text-pink-600">52.8M</div>
+                        <div class="text-lg font-bold text-pink-600" id="statsTotalBurn">--</div>
                         <div class="text-xs text-gray-400">REMIX</div>
                     </div>
                     <div class="bg-mint-50 rounded-xl p-4">
                         <div class="text-xs text-gray-500 mb-1">总奖励发放</div>
-                        <div class="text-lg font-bold text-mint-600">$2.1M</div>
+                        <div class="text-lg font-bold text-mint-600" id="statsTotalReward">--</div>
                         <div class="text-xs text-gray-400">slisBNB</div>
                     </div>
                     <div class="bg-amber-50 rounded-xl p-4">
                         <div class="text-xs text-gray-500 mb-1">参与地址数</div>
-                        <div class="text-lg font-bold text-amber-600">3,847</div>
+                        <div class="text-lg font-bold text-amber-600" id="statsParticipantCount">--</div>
                         <div class="text-xs text-gray-400">个钱包</div>
                     </div>
                     <div class="bg-purple-50 rounded-xl p-4">
-                        <div class="text-xs text-gray-500 mb-1">平均APY</div>
-                        <div class="text-lg font-bold text-purple-600">24.5%</div>
-                        <div class="text-xs text-gray-400">年化收益</div>
+                        <div class="text-xs text-gray-500 mb-1">通缩率</div>
+                        <div class="text-lg font-bold text-purple-600" id="statsDeflationRate">--</div>
+                        <div class="text-xs text-gray-400">已销毁占比</div>
                     </div>
                 </div>
             </div>
@@ -531,11 +531,11 @@
                 <div class="flex items-center justify-between mb-4">
                     <div>
                         <div class="text-sm text-gray-500">待领取 slisBNB</div>
-                        <div class="text-2xl font-bold text-pink-600">892.45</div>
+                        <div class="text-2xl font-bold text-pink-600" id="statsMarketingPending">--</div>
                     </div>
                     <button class="btn-secondary px-5 py-2 text-sm">提取</button>
                 </div>
-                <div class="text-xs text-gray-400">营销钱包地址: 0x71C...9A2E</div>
+                <div class="text-xs text-gray-400" id="statsMarketingAddr">营销钱包地址: --</div>
             </div>
 
             <!-- 合约信息 -->
@@ -544,19 +544,23 @@
                 <div class="space-y-3 text-sm">
                     <div class="flex justify-between">
                         <span class="text-gray-500">MEYieldVault</span>
-                        <span class="font-mono text-gray-700">0x8A3...2F1</span>
+                        <span class="font-mono text-gray-700" id="contractVaultAddr">--</span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-500">BurnDistributor</span>
-                        <span class="font-mono text-gray-700">0x3B7...9C4</span>
+                        <span class="font-mono text-gray-700" id="contractBurnDistAddr">--</span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-gray-500">Lista StakeManager</span>
-                        <span class="font-mono text-gray-700">0x1ad...951</span>
+                        <span class="text-gray-500">Lens</span>
+                        <span class="font-mono text-gray-700" id="contractLensAddr">--</span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-gray-500">slisBNB Token</span>
-                        <span class="font-mono text-gray-700">0xB0b...5a1</span>
+                        <span class="text-gray-500">Token</span>
+                        <span class="font-mono text-gray-700" id="contractTokenAddr">--</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">多签钱包</span>
+                        <span class="font-mono text-gray-700" id="contractMultisigAddr">--</span>
                     </div>
                 </div>
             </div>
@@ -956,11 +960,24 @@
         // slisBNB 价格缓存
         let slisBNBPrice = 0;
         
-        // 获取 slisBNB 价格（从 Lista 或 PancakeSwap 获取）
+        // 获取 slisBNB 价格（从 GeckoTerminal / PancakeSwap 获取）
         async function getSlisBNBPrice() {
             try {
-                // 简化处理：使用 BNB 价格作为近似（1 slisBNB ≈ 1 BNB）
-                // 实际项目中可以从价格预言机获取
+                // slisBNB 在 BSC 上的地址
+                const SLIS_BNB_ADDRESS = '0x1b0e7652f143c29832189136a3e6a3957c46a9ad';
+                // 尝试从 GeckoTerminal 获取价格
+                try {
+                    const priceResp = await fetch(`https://api.geckoterminal.com/api/v2/simple/networks/bsc/token_price/${SLIS_BNB_ADDRESS}`);
+                    const priceData = await priceResp.json();
+                    const priceStr = priceData?.data?.attributes?.token_prices?.[SLIS_BNB_ADDRESS.toLowerCase()];
+                    if (priceStr) {
+                        return parseFloat(priceStr);
+                    }
+                } catch { /* fallback */ }
+                
+                // 备用：使用 BNB 价格作为近似（slisBNB ≈ 1 BNB）
+                // 实际项目中可以从 Lista 价格预言机或 DexScreener 获取
+                console.warn('slisBNB 价格获取失败，使用近似值 1 BNB');
                 return 1.0;
             } catch (e) {
                 console.error('获取 slisBNB 价格失败:', e);
@@ -1101,7 +1118,23 @@
                 const totalRewards = parseFloat(formatEther(
                     stats.pendingHolderRewardAmount.add(stats.pendingBurnRewardAmount).add(stats.pendingInviteRewardAmount)
                 , 2));
-                document.querySelector('#page-rewards .text-3xl.font-bold.gradient-green-text').textContent = '$' + totalRewards.toLocaleString();
+                const totalRewardEl = document.getElementById('totalRewardAmount');
+                if (totalRewardEl) {
+                    totalRewardEl.textContent = '$' + totalRewards.toLocaleString();
+                }
+                
+                // 更新销毁页余额显示
+                const burnBalanceEl = document.getElementById('burnTokenBalance');
+                if (burnBalanceEl) {
+                    const bal = parseFloat(ethers.utils.formatEther(stats.tokenBalance));
+                    if (bal >= 1000000) {
+                        burnBalanceEl.textContent = (bal / 1000000).toFixed(2) + 'M';
+                    } else if (bal >= 1000) {
+                        burnBalanceEl.textContent = (bal / 1000).toFixed(2) + 'K';
+                    } else {
+                        burnBalanceEl.textContent = bal.toLocaleString('en-US', { maximumFractionDigits: 2 });
+                    }
+                }
                 
                 // 更新各奖励
                 document.querySelector('#page-rewards .card:nth-child(2) .text-2xl.font-bold.text-amber-600').textContent = formatEther(stats.pendingHolderRewardAmount, 2);
@@ -1131,11 +1164,21 @@
                 // 更新邀请页
                 const threshold = parseFloat(formatEther(stats.activationThresholdValue, 0));
                 const burned = parseFloat(formatEther(stats.inviterBurnedAmount || 0, 0));
-                const progress = Math.min((burned / threshold) * 100, 100);
+                const progress = threshold > 0 ? Math.min((burned / threshold) * 100, 100) : 0;
                 
-                document.querySelector('#page-invite .progress-fill.gradient-green').style.width = progress + '%';
-                document.querySelector('#page-invite .font-medium span.text-pink-600').textContent = burned.toLocaleString();
-                document.querySelector('#page-invite .font-medium').innerHTML = `<span class="text-pink-600">${burned.toLocaleString()}</span> / ${threshold.toLocaleString()} REMIX`;
+                // 使用新 ID 更新进度条和文本
+                const progressEl = document.getElementById('inviteThresholdProgress');
+                if (progressEl) progressEl.style.width = progress + '%';
+                
+                const thresholdTextEl = document.getElementById('inviteThresholdText');
+                if (thresholdTextEl) {
+                    thresholdTextEl.innerHTML = `<span class="text-pink-600">${burned.toLocaleString()}</span> / ${threshold.toLocaleString()} REMIX`;
+                }
+                
+                const activationDisplayEl = document.getElementById('inviteActivationThresholdDisplay');
+                if (activationDisplayEl) {
+                    activationDisplayEl.textContent = threshold.toLocaleString();
+                }
                 
                 // 更新激活状态
                 const statusBadge = document.querySelector('#page-invite .px-3.py-1');
@@ -1162,6 +1205,9 @@
                 // 更新社区页营销钱包 slisBNB 余额
                 document.getElementById('marketingSlisBalance').textContent = formatEther(stats.marketingWalletBalance, 2);
                 
+                // 更新 USD 等价金额
+                await updateMarketingUsdValue();
+                
             } catch (e) {
                 console.error('加载营销统计失败:', e);
             }
@@ -1173,6 +1219,9 @@
             try {
                 const bnbBalance = await provider.getBalance(CONTRACTS.MULTISIG.address);
                 document.getElementById('marketingBnbBalance').textContent = formatEther(bnbBalance, 2);
+                
+                // 更新 USD 等价金额
+                await updateMarketingUsdValue();
             } catch (e) {
                 console.error('读取营销钱包 BNB 余额失败:', e);
                 document.getElementById('marketingBnbBalance').textContent = '--';
@@ -1335,11 +1384,15 @@
                 }
                 
                 const burnWeightEl = document.querySelector('#page-burn .text-xl.font-bold.text-mint-600');
+                const burnRankEl = document.getElementById('myBurnRankText');
                 if (burnWeightEl && chainData.totalBurned > 0) {
                     const myWeight = parseFloat(ethers.utils.formatEther(burnInfo.weight));
                     const totalWeight = parseFloat(ethers.utils.formatEther(chainData.totalBurned));
                     const weightPercent = totalWeight > 0 ? (myWeight / totalWeight * 100).toFixed(2) : '0';
                     burnWeightEl.textContent = weightPercent + '%';
+                    if (burnRankEl) {
+                        burnRankEl.textContent = '权重 ' + myWeight.toLocaleString();
+                    }
                 }
                 
                 // 从事件统计我的 L1/L2 邀请数和返佣
@@ -1415,6 +1468,11 @@
             await loadBurnDistributorStats();
             await loadMarketingStats();
             loadCommunityStats(); // 不阻塞，异步加载
+            // 更新公告系统变量
+            CURRENT_TOTAL_BURN = parseFloat(ethers.utils.formatEther(chainData.totalBurned || 0));
+            generateAnnouncements();
+            // 更新数据看板页
+            await loadStatsPage();
             if (userAddress) {
                 await loadUserStats();
                 await loadInviteStats();
@@ -1508,7 +1566,9 @@
         }
 
         function setMaxBurn() {
-            document.getElementById('burnAmount').value = '50000';
+            const balanceEl = document.getElementById('burnTokenBalance');
+            const maxVal = balanceEl && balanceEl.textContent && balanceEl.textContent !== '--' ? parseFloat(balanceEl.textContent.replace(/,/g, '')) : 0;
+            document.getElementById('burnAmount').value = maxVal > 0 ? maxVal : '';
             updateBurnPreview();
         }
 
@@ -1522,6 +1582,10 @@
             document.getElementById('previewL1').textContent = l1.toLocaleString() + ' REMIX';
             document.getElementById('previewL2').textContent = l2.toLocaleString() + ' REMIX';
         }
+
+        // 公告系统使用的全局变量（由 refreshAllData 更新）
+        let CURRENT_TOTAL_BURN = 0;
+        let TODAY_BURN = 0;
 
         // 生成公告列表
         function generateAnnouncements() {
@@ -1586,6 +1650,116 @@
             
             // 读取营销钱包 BNB 余额
             await loadMarketingBnbBalance();
+        }
+
+        // 更新数据看板页（page-stats）的动态数据
+        async function loadStatsPage() {
+            try {
+                // 1. 总销毁量
+                const totalBurnEl = document.getElementById('statsTotalBurn');
+                if (totalBurnEl && chainData.totalBurned > 0) {
+                    const burned = parseFloat(ethers.utils.formatEther(chainData.totalBurned));
+                    totalBurnEl.textContent = burned >= 1000000 ? (burned / 1000000).toFixed(1) + 'M' : burned.toLocaleString();
+                }
+
+                // 2. 总奖励发放（从 BurnReferralDistributor 读取）
+                const distributor = new ethers.Contract(CONTRACTS.BURN_DISTRIBUTOR.address, CONTRACTS.BURN_DISTRIBUTOR.abi, provider);
+                
+                const totalRewardEl = document.getElementById('statsTotalReward');
+                if (totalRewardEl) {
+                    try {
+                        const totalInviteReward = await distributor.totalInviteRewardDistributed();
+                        const totalBurnReward = await distributor.totalBurnRewardDistributed();
+                        // 用 slisBNB 单位显示，乘以价格估算 USD
+                        const totalRewardEth = parseFloat(ethers.utils.formatEther(totalInviteReward.add(totalBurnReward)));
+                        const price = await getSlisBNBPrice();
+                        totalRewardEl.textContent = '$' + (totalRewardEth * price).toLocaleString(undefined, { maximumFractionDigits: 1 });
+                    } catch {
+                        totalRewardEl.textContent = '--';
+                    }
+                }
+
+                // 3. 参与地址数（复用社区页数据或显示持币地址）
+                const participantCountEl = document.getElementById('statsParticipantCount');
+                if (participantCountEl) {
+                    // 尝试从已加载的数据获取
+                    const holderCountEl = document.getElementById('holderCount');
+                    if (holderCountEl && holderCountEl.textContent !== '--') {
+                        participantCountEl.textContent = holderCountEl.textContent;
+                    }
+                }
+
+                // 4. 通缩率
+                const deflationRateEl = document.getElementById('statsDeflationRate');
+                if (deflationRateEl && chainData.totalSupply > 0 && chainData.totalBurned > 0) {
+                    const supply = parseFloat(ethers.utils.formatEther(chainData.totalSupply));
+                    const burned = parseFloat(ethers.utils.formatEther(chainData.totalBurned));
+                    deflationRateEl.textContent = (burned / supply * 100).toFixed(2) + '%';
+                }
+
+                // 5. 营销钱包待领取
+                const marketingPendingEl = document.getElementById('statsMarketingPending');
+                if (marketingPendingEl) {
+                    try {
+                        const marketingSlis = document.getElementById('marketingSlisBalance');
+                        if (marketingSlis && marketingSlis.textContent !== '--') {
+                            marketingPendingEl.textContent = marketingSlis.textContent;
+                        }
+                    } catch { /* skip */ }
+                }
+
+                // 6. 营销钱包地址
+                const marketingAddrEl = document.getElementById('statsMarketingAddr');
+                if (marketingAddrEl) {
+                    const addr = CONTRACTS.MULTISIG.address;
+                    marketingAddrEl.textContent = '营销钱包地址: ' + addr.slice(0, 6) + '...' + addr.slice(-4);
+                }
+
+                // 7. 合约地址 - 使用真实配置中的地址
+                const addrMap = {
+                    contractVaultAddr: CONTRACTS.VAULT.address,
+                    contractBurnDistAddr: CONTRACTS.BURN_DISTRIBUTOR.address,
+                    contractLensAddr: CONTRACTS.LENS.address,
+                    contractTokenAddr: CONTRACTS.TOKEN.address,
+                    contractMultisigAddr: CONTRACTS.MULTISIG.address
+                };
+                for (const [id, addr] of Object.entries(addrMap)) {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = addr.slice(0, 6) + '...' + addr.slice(-4);
+                }
+
+                // 8. 营销钱包 USD 等价金额更新
+                await updateMarketingUsdValue();
+
+            } catch (e) {
+                console.error('更新数据看板失败:', e);
+            }
+        }
+
+        // 更新营销钱包 USD 等价金额
+        async function updateMarketingUsdValue() {
+            try {
+                const slisEl = document.getElementById('marketingSlisUsd');
+                const bnbEl = document.getElementById('marketingBnbUsd');
+                const slisBalEl = document.getElementById('marketingSlisBalance');
+                const bnbBalEl = document.getElementById('marketingBnbBalance');
+
+                // BNB 价格（固定近似，可后续接入真实 API）
+                const bnbPrice = 600; // 近似值
+
+                if (slisEl && slisBalEl && slisBalEl.textContent !== '--') {
+                    const slisVal = parseFloat(slisBalEl.textContent.replace(/,/g, '')) || 0;
+                    const price = await getSlisBNBPrice();
+                    slisEl.textContent = '≈ $' + (slisVal * price).toFixed(2);
+                }
+
+                if (bnbEl && bnbBalEl && bnbBalEl.textContent !== '--') {
+                    const bnbVal = parseFloat(bnbBalEl.textContent.replace(/,/g, '')) || 0;
+                    bnbEl.textContent = '≈ $' + (bnbVal * bnbPrice).toFixed(2);
+                }
+            } catch (e) {
+                console.warn('更新营销钱包 USD 失败:', e);
+            }
         }
         
         // 加载社区数据（持币地址数、市值）
