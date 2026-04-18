@@ -164,9 +164,9 @@
         <div class="flex items-center justify-between px-4 py-3">
             <div class="flex items-center gap-2">
                 <div class="w-9 h-9 rounded-xl gradient-green flex items-center justify-center">
-                    <span id="tokenLogoSymbol" class="text-white font-bold text-xs">--</span>
+                    <span id="tokenLogoSymbol" class="text-white font-bold text-xs">ME</span>
                 </div>
-                <span id="appTitle" class="font-bold text-lg gradient-green-text">--Vault</span>
+                <span id="appTitle" class="font-bold text-lg gradient-green-text">REMIX生态中心</span>
             </div>
             <button id="walletBtn" onclick="toggleWallet()" class="px-4 py-2 rounded-full text-sm font-medium transition-all border">
                 <span id="walletText">连接钱包</span>
@@ -226,14 +226,14 @@
                     <span class="text-gray-500 text-sm">总燃烧量</span>
                     <span class="px-2 py-1 bg-pink-100 text-pink-600 text-xs rounded-full font-medium">链上实时</span>
                 </div>
-                <div class="text-3xl font-bold text-pink-600 mb-1">52,847,293</div>
-                <div class="text-sm text-gray-400">REMIX</div>
+                <div class="text-3xl font-bold text-pink-600 mb-1" id="totalBurnedAmount">--</div>
+                <div class="text-sm text-gray-400" id="burnTokenSymbol">REMIX</div>
                 <div class="mt-3 progress-bar">
-                    <div class="progress-fill gradient-pink" style="width: 52.85%"></div>
+                    <div class="progress-fill gradient-pink" id="burnProgressBar" style="width: 0%"></div>
                 </div>
                 <div class="flex justify-between mt-2 text-xs text-gray-400">
-                    <span>已销毁 52.8M</span>
-                    <span>通缩率 52.85%</span>
+                    <span id="burnedText">已销毁 --</span>
+                    <span id="deflationRate">通缩率 --%</span>
                 </div>
             </div>
 
@@ -272,40 +272,8 @@
                     <h3 class="font-semibold text-gray-800">燃烧排行榜</h3>
                     <span class="text-xs text-gray-400">按销毁权重排序</span>
                 </div>
-                <div class="space-y-3">
-                    <div class="flex items-center gap-3 p-3 bg-pink-50 rounded-xl border border-pink-100">
-                        <div class="w-8 h-8 rounded-full gradient-pink flex items-center justify-center text-white text-sm font-bold">1</div>
-                        <div class="flex-1">
-                            <div class="font-medium text-sm">0x7a2f...9e4d</div>
-                            <div class="text-xs text-gray-500">累计销毁 2.5M</div>
-                        </div>
-                        <div class="text-right">
-                            <div class="font-semibold text-pink-600">25.4%</div>
-                            <div class="text-xs text-gray-400">权重</div>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                        <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 text-sm font-bold">2</div>
-                        <div class="flex-1">
-                            <div class="font-medium text-sm">0x3b8c...2f1a</div>
-                            <div class="text-xs text-gray-500">累计销毁 1.8M</div>
-                        </div>
-                        <div class="text-right">
-                            <div class="font-semibold text-gray-700">18.2%</div>
-                            <div class="text-xs text-gray-400">权重</div>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                        <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 text-sm font-bold">3</div>
-                        <div class="flex-1">
-                            <div class="font-medium text-sm">0x9d4e...7c3b</div>
-                            <div class="text-xs text-gray-500">累计销毁 1.2M</div>
-                        </div>
-                        <div class="text-right">
-                            <div class="font-semibold text-gray-700">12.1%</div>
-                            <div class="text-xs text-gray-400">权重</div>
-                        </div>
-                    </div>
+                <div class="space-y-3" id="burnLeaderboard">
+                    <div class="text-center text-gray-400 text-sm py-4">数据加载中...</div>
                 </div>
             </div>
         </div>
@@ -487,16 +455,16 @@
                 <!-- 邀请统计 -->
                 <div class="grid grid-cols-2 gap-3 mb-4">
                     <div class="text-center p-3 bg-gray-50 rounded-xl">
-                        <div class="text-2xl font-bold text-pink-600">12</div>
+                        <div class="text-2xl font-bold text-pink-600" id="l1InviteCount">--</div>
                         <div class="text-xs text-gray-500">L1 邀请</div>
                     </div>
                     <div class="text-center p-3 bg-gray-50 rounded-xl">
-                        <div class="text-2xl font-bold text-mint-600">48</div>
+                        <div class="text-2xl font-bold text-mint-600" id="l2InviteCount">--</div>
                         <div class="text-xs text-gray-500">L2 邀请</div>
                     </div>
                 </div>
 
-                <!-- 邀请返佣明细 - 单位修正为 REMIX -->
+                <!-- 邀请返佣明细 -->
                 <div class="space-y-3">
                     <h4 class="font-medium text-gray-700 text-sm">返佣明细</h4>
                     <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
@@ -508,7 +476,7 @@
                             </div>
                         </div>
                         <div class="text-right">
-                            <div class="font-semibold text-pink-600">+89,230</div>
+                            <div class="font-semibold text-pink-600" id="l1RewardAmount">--</div>
                             <div class="text-xs text-gray-400">REMIX</div>
                         </div>
                     </div>
@@ -521,7 +489,7 @@
                             </div>
                         </div>
                         <div class="text-right">
-                            <div class="font-semibold text-mint-600">+20,120</div>
+                            <div class="font-semibold text-mint-600" id="l2RewardAmount">--</div>
                             <div class="text-xs text-gray-400">REMIX</div>
                         </div>
                     </div>
@@ -608,26 +576,26 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div class="bg-white/70 rounded-xl p-3">
                             <div class="text-xs text-gray-500 mb-1">slisBNB 余额</div>
-                            <div class="text-lg font-bold text-pink-600" id="marketingSlisBalance">892.45</div>
-                            <div class="text-xs text-gray-400">≈ $456.23</div>
+                            <div class="text-lg font-bold text-pink-600" id="marketingSlisBalance">--</div>
+                            <div class="text-xs text-gray-400" id="marketingSlisUsd">≈ $--</div>
                         </div>
                         <div class="bg-white/70 rounded-xl p-3">
                             <div class="text-xs text-gray-500 mb-1">BNB 余额</div>
-                            <div class="text-lg font-bold text-mint-600" id="marketingBnbBalance">12.34</div>
-                            <div class="text-xs text-gray-400">≈ $7,234.56</div>
+                            <div class="text-lg font-bold text-mint-600" id="marketingBnbBalance">--</div>
+                            <div class="text-xs text-gray-400" id="marketingBnbUsd">≈ $--</div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- 社区数据概览 - 数据源说明 -->
+                <!-- 社区数据概览 -->
                 <div class="grid grid-cols-3 gap-2 mb-5">
                     <div class="text-center p-3 bg-pink-50 rounded-xl">
-                        <div class="text-lg font-bold text-pink-600">3,847</div>
+                        <div class="text-lg font-bold text-pink-600" id="holderCount">--</div>
                         <div class="text-xs text-gray-500">持币地址</div>
                     </div>
                     <div class="text-center p-3 bg-mint-50 rounded-xl">
-                        <div class="text-lg font-bold text-mint-600">1,245</div>
-                        <div class="text-xs text-gray-500">日活地址</div>
+                        <div class="text-lg font-bold text-mint-600" id="marketCap">--</div>
+                        <div class="text-xs text-gray-500">市值</div>
                     </div>
                     <div class="text-center p-3 bg-amber-50 rounded-xl">
                         <div class="text-lg font-bold text-amber-600" id="communityTotalBurn">--</div>
@@ -1060,19 +1028,42 @@
                 // 更新总燃烧量显示
                 const burned = parseFloat(formatEther(stats.totalActualBurnedAmount, 0));
                 const burnedFormatted = burned.toLocaleString();
-                document.querySelector('#page-overview .text-3xl.font-bold.text-pink-600').textContent = burnedFormatted;
+                
+                // 更新总燃烧量卡片
+                const totalBurnedEl = document.getElementById('totalBurnedAmount');
+                if (totalBurnedEl) {
+                    totalBurnedEl.textContent = burnedFormatted;
+                }
+                
+                // 更新代币符号
+                const burnSymbolEl = document.getElementById('burnTokenSymbol');
+                if (burnSymbolEl) {
+                    burnSymbolEl.textContent = tokenInfo.symbol;
+                }
+                
+                // 更新已销毁文本
+                const burnedTextEl = document.getElementById('burnedText');
+                if (burnedTextEl) {
+                    burnedTextEl.textContent = `已销毁 ${burned >= 1000000 ? (burned / 1000000).toFixed(1) + 'M' : burnedFormatted}`;
+                }
+                
+                // 计算并更新通缩率
+                const deflationRateEl = document.getElementById('deflationRate');
+                const burnProgressEl = document.getElementById('burnProgressBar');
+                if (chainData.totalSupply > 0) {
+                    const deflationRate = (burned / parseFloat(ethers.utils.formatEther(chainData.totalSupply)) * 100).toFixed(2);
+                    if (deflationRateEl) {
+                        deflationRateEl.textContent = `通缩率 ${deflationRate}%`;
+                    }
+                    if (burnProgressEl) {
+                        burnProgressEl.style.width = Math.min(deflationRate, 100) + '%';
+                    }
+                }
                 
                 // 更新社区页总销毁量
                 const communityBurnEl = document.getElementById('communityTotalBurn');
                 if (communityBurnEl) {
                     communityBurnEl.textContent = burned >= 1000000 ? (burned / 1000000).toFixed(1) + 'M' : burnedFormatted;
-                }
-                
-                // 计算通缩率
-                if (chainData.totalSupply > 0) {
-                    const deflationRate = (burned / chainData.totalSupply * 100).toFixed(2);
-                    document.querySelector('#page-overview .flex.justify-between.mt-2 span:last-child').textContent = `通缩率 ${deflationRate}%`;
-                    document.querySelector('#page-overview .progress-fill.gradient-pink').style.width = deflationRate + '%';
                 }
             } catch (e) {
                 console.error('加载销毁统计失败:', e);
@@ -1096,7 +1087,7 @@
                 // 更新用户持有代币数量显示
                 const tokenBalanceEl = document.getElementById('userTokenBalance');
                 if (tokenBalanceEl) {
-                    const balance = parseFloat(formatEther(stats.tokenBalance, 2));
+                    const balance = parseFloat(ethers.utils.formatEther(stats.tokenBalance));
                     if (balance >= 1000000) {
                         tokenBalanceEl.textContent = (balance / 1000000).toFixed(2) + 'M';
                     } else if (balance >= 1000) {
@@ -1214,11 +1205,27 @@
                 const totalBurned = await distributor.totalActualBurned();
                 chainData.totalBurned = totalBurned;
                 
-                // 更新总燃烧量显示
-                const burned = parseFloat(formatEther(totalBurned, 0));
-                const burnedFormatted = burned.toLocaleString();
-                const totalBurnEl = document.querySelector('#page-overview .text-3xl.font-bold.text-pink-600');
-                if (totalBurnEl) totalBurnEl.textContent = burnedFormatted;
+                // 更新总燃烧量显示（使用新ID）
+                const burned = parseFloat(ethers.utils.formatEther(totalBurned));
+                const burnedFormatted = burned.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                
+                const totalBurnedEl = document.getElementById('totalBurnedAmount');
+                if (totalBurnedEl) totalBurnedEl.textContent = burnedFormatted;
+                
+                const burnedTextEl = document.getElementById('burnedText');
+                if (burnedTextEl) {
+                    burnedTextEl.textContent = `已销毁 ${burned >= 1000000 ? (burned / 1000000).toFixed(1) + 'M' : burnedFormatted}`;
+                }
+                
+                // 计算通缩率
+                if (chainData.totalSupply > 0) {
+                    const totalSupplyNum = parseFloat(ethers.utils.formatEther(chainData.totalSupply));
+                    const deflationRate = (burned / totalSupplyNum * 100).toFixed(2);
+                    const deflationRateEl = document.getElementById('deflationRate');
+                    if (deflationRateEl) deflationRateEl.textContent = `通缩率 ${deflationRate}%`;
+                    const burnProgressEl = document.getElementById('burnProgressBar');
+                    if (burnProgressEl) burnProgressEl.style.width = Math.min(deflationRate, 100) + '%';
+                }
                 
                 // 更新社区页总销毁量
                 const communityBurnEl = document.getElementById('communityTotalBurn');
@@ -1226,21 +1233,68 @@
                     communityBurnEl.textContent = burned >= 1000000 ? (burned / 1000000).toFixed(1) + 'M' : burnedFormatted;
                 }
                 
-                // 计算通缩率
-                if (chainData.totalSupply > 0) {
-                    const deflationRate = (burned / parseFloat(formatEther(chainData.totalSupply, 0)) * 100).toFixed(2);
-                    const deflationEl = document.querySelector('#page-overview .flex.justify-between.mt-2 span:last-child');
-                    if (deflationEl) deflationEl.textContent = `通缩率 ${deflationRate}%`;
-                    const progressEl = document.querySelector('#page-overview .progress-fill.gradient-pink');
-                    if (progressEl) progressEl.style.width = deflationRate + '%';
-                }
-                
                 // 读取激活门槛
                 const threshold = await distributor.activationThreshold();
                 chainData.activationThreshold = threshold;
                 
+                // 渲染排行榜：从事件日志读取 BurnProcessed 事件，排列前3名
+                await loadBurnLeaderboard(distributor, burned);
+                
             } catch (e) {
                 console.error('加载 BurnDistributor 统计失败:', e);
+            }
+        }
+        
+        // 从事件日志加载排行榜
+        async function loadBurnLeaderboard(distributor, totalBurned) {
+            const leaderboardEl = document.getElementById('burnLeaderboard');
+            if (!leaderboardEl) return;
+            try {
+                // 获取最近 5000 个区块的 BurnProcessed 事件
+                const currentBlock = await provider.getBlockNumber();
+                const fromBlock = Math.max(0, currentBlock - 5000);
+                const filter = distributor.filters.BurnProcessed();
+                const events = await distributor.queryFilter(filter, fromBlock, 'latest');
+                
+                // 汇总每个地址的销毁量
+                const burnMap = {};
+                for (const ev of events) {
+                    const user = ev.args.user;
+                    const amount = parseFloat(ethers.utils.formatEther(ev.args.actualBurnAmount));
+                    burnMap[user] = (burnMap[user] || 0) + amount;
+                }
+                
+                // 排序取前3
+                const sorted = Object.entries(burnMap)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 3);
+                
+                if (sorted.length === 0) {
+                    leaderboardEl.innerHTML = '<div class="text-center text-gray-400 text-sm py-4">暂无销毁记录</div>';
+                    return;
+                }
+                
+                leaderboardEl.innerHTML = sorted.map(([addr, amount], i) => {
+                    const isFirst = i === 0;
+                    const weightPct = totalBurned > 0 ? (amount / totalBurned * 100).toFixed(1) : '0';
+                    const amountStr = amount >= 1000000 ? (amount / 1000000).toFixed(2) + 'M' : amount.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                    const shortAddr = addr.slice(0, 6) + '...' + addr.slice(-4);
+                    return `
+                        <div class="flex items-center gap-3 p-3 ${isFirst ? 'bg-pink-50 rounded-xl border border-pink-100' : 'bg-gray-50 rounded-xl'}">
+                            <div class="w-8 h-8 rounded-full ${isFirst ? 'gradient-pink' : 'bg-gray-200'} flex items-center justify-center ${isFirst ? 'text-white' : 'text-gray-600'} text-sm font-bold">${i + 1}</div>
+                            <div class="flex-1">
+                                <div class="font-medium text-sm">${shortAddr}</div>
+                                <div class="text-xs text-gray-500">累计销毁 ${amountStr}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-semibold ${isFirst ? 'text-pink-600' : 'text-gray-700'}">${weightPct}%</div>
+                                <div class="text-xs text-gray-400">权重</div>
+                            </div>
+                        </div>`;
+                }).join('');
+            } catch (e) {
+                console.error('加载排行榜失败:', e);
+                leaderboardEl.innerHTML = '<div class="text-center text-gray-400 text-sm py-4">排行榜数据加载失败</div>';
             }
         }
 
@@ -1268,23 +1322,88 @@
                 
                 // 更新收益页面显示
                 const burnRewardEl = document.getElementById('burnRewardAmount');
-                if (burnRewardEl) burnRewardEl.textContent = formatEther(pendingBurnReward, 2);
+                if (burnRewardEl) burnRewardEl.textContent = formatEther(pendingBurnReward, 4);
                 
                 const inviteRewardEl = document.getElementById('inviteRewardAmount');
-                if (inviteRewardEl) inviteRewardEl.textContent = formatEther(pendingInviteReward, 2);
+                if (inviteRewardEl) inviteRewardEl.textContent = formatEther(pendingInviteReward, 4);
                 
                 // 更新销毁页统计
                 const userBurnedEl = document.querySelector('#page-burn .text-xl.font-bold.text-pink-600');
-                if (userBurnedEl) userBurnedEl.textContent = formatEther(burnInfo.rawBurned, 0);
+                if (userBurnedEl) {
+                    const burnedNum = parseFloat(ethers.utils.formatEther(burnInfo.rawBurned));
+                    userBurnedEl.textContent = burnedNum.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                }
                 
                 const burnWeightEl = document.querySelector('#page-burn .text-xl.font-bold.text-mint-600');
                 if (burnWeightEl && chainData.totalBurned > 0) {
-                    const weightPercent = (parseFloat(formatEther(burnInfo.weight, 4)) / parseFloat(formatEther(chainData.totalBurned, 4)) * 100).toFixed(2);
+                    const myWeight = parseFloat(ethers.utils.formatEther(burnInfo.weight));
+                    const totalWeight = parseFloat(ethers.utils.formatEther(chainData.totalBurned));
+                    const weightPercent = totalWeight > 0 ? (myWeight / totalWeight * 100).toFixed(2) : '0';
                     burnWeightEl.textContent = weightPercent + '%';
                 }
                 
+                // 从事件统计我的 L1/L2 邀请数和返佣
+                await loadUserInviteStats(distributor);
+                
             } catch (e) {
                 console.error('加载用户 BurnDistributor 统计失败:', e);
+            }
+        }
+        
+        // 从事件日志统计用户邀请数量和返佣
+        async function loadUserInviteStats(distributor) {
+            if (!userAddress) return;
+            try {
+                const currentBlock = await provider.getBlockNumber();
+                const fromBlock = Math.max(0, currentBlock - 5000);
+                
+                // 查询 L1 邀请（inviter == userAddress）
+                const filterL1 = distributor.filters.BurnProcessed(null, null, null, userAddress);
+                const l1Events = await distributor.queryFilter(filterL1, fromBlock, 'latest');
+                
+                // 查询 L2 邀请（inviter2 == userAddress）
+                const filterL2 = distributor.filters.BurnProcessed(null, null, null, null, null, userAddress);
+                const l2Events = await distributor.queryFilter(filterL2, fromBlock, 'latest');
+                
+                // 计算累计返佣
+                let l1TotalReward = 0;
+                for (const ev of l1Events) {
+                    l1TotalReward += parseFloat(ethers.utils.formatEther(ev.args.inviterReward));
+                }
+                let l2TotalReward = 0;
+                for (const ev of l2Events) {
+                    l2TotalReward += parseFloat(ethers.utils.formatEther(ev.args.inviter2Reward));
+                }
+                
+                // 更新 L1/L2 邀请数
+                const l1CountEl = document.getElementById('l1InviteCount');
+                if (l1CountEl) l1CountEl.textContent = l1Events.length;
+                
+                const l2CountEl = document.getElementById('l2InviteCount');
+                if (l2CountEl) l2CountEl.textContent = l2Events.length;
+                
+                // 更新返佣金额
+                const l1RewardEl = document.getElementById('l1RewardAmount');
+                if (l1RewardEl) {
+                    l1RewardEl.textContent = '+' + l1TotalReward.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                }
+                
+                const l2RewardEl = document.getElementById('l2RewardAmount');
+                if (l2RewardEl) {
+                    l2RewardEl.textContent = '+' + l2TotalReward.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                }
+                
+            } catch (e) {
+                console.error('加载邀请统计失败:', e);
+                // 显示 0 而不是 --
+                ['l1InviteCount', 'l2InviteCount'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = '0';
+                });
+                ['l1RewardAmount', 'l2RewardAmount'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = '+0';
+                });
             }
         }
 
@@ -1295,6 +1414,7 @@
             await loadBurnStats();
             await loadBurnDistributorStats();
             await loadMarketingStats();
+            loadCommunityStats(); // 不阻塞，异步加载
             if (userAddress) {
                 await loadUserStats();
                 await loadInviteStats();
@@ -1466,6 +1586,48 @@
             
             // 读取营销钱包 BNB 余额
             await loadMarketingBnbBalance();
+        }
+        
+        // 加载社区数据（持币地址数、市值）
+        async function loadCommunityStats() {
+            // 持币地址数：从 BscScan API 获取
+            try {
+                const resp = await fetch(`https://api.bscscan.com/api?module=token&action=tokenholdercount&contractaddress=${CONTRACTS.TOKEN.address}&apikey=YourApiKeyToken`);
+                const data = await resp.json();
+                if (data.status === '1') {
+                    const holderCountEl = document.getElementById('holderCount');
+                    if (holderCountEl) holderCountEl.textContent = parseInt(data.result).toLocaleString();
+                }
+            } catch (e) {
+                // BscScan 接口失败则显示 --
+                console.warn('获取持币地址失败:', e);
+            }
+            
+            // 市值：totalSupply * 代币价格（从 PancakeSwap / DEX 价格）
+            try {
+                if (!provider || !chainData.totalSupply) return;
+                // 尝试从 GeckoTerminal 获取代币价格
+                const priceResp = await fetch(`https://api.geckoterminal.com/api/v2/simple/networks/bsc/token_price/${CONTRACTS.TOKEN.address}`);
+                const priceData = await priceResp.json();
+                const priceStr = priceData?.data?.attributes?.token_prices?.[CONTRACTS.TOKEN.address.toLowerCase()];
+                if (priceStr) {
+                    const price = parseFloat(priceStr);
+                    const totalSupplyNum = parseFloat(ethers.utils.formatEther(chainData.totalSupply));
+                    const marketCap = price * totalSupplyNum;
+                    const marketCapEl = document.getElementById('marketCap');
+                    if (marketCapEl) {
+                        if (marketCap >= 1000000) {
+                            marketCapEl.textContent = '$' + (marketCap / 1000000).toFixed(2) + 'M';
+                        } else if (marketCap >= 1000) {
+                            marketCapEl.textContent = '$' + (marketCap / 1000).toFixed(2) + 'K';
+                        } else {
+                            marketCapEl.textContent = '$' + marketCap.toFixed(2);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('获取市值失败:', e);
+            }
         }
 
         // 质押相关配置
