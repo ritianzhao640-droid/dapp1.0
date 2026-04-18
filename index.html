@@ -684,10 +684,23 @@
                     </div>
                 </div>
 
-                <!-- 邀请返佣明细 -->
-                <div class="space-y-3">
-                    <h4 class="font-medium text-gray-700 text-sm">返佣明细</h4>
-                    <div class="flex items-center justify-between p-3 glass-subtle rounded-xl">
+            <!-- 邀请返佣明细 -->
+            <div class="space-y-3">
+                <h4 class="font-medium text-gray-700 text-sm">返佣明细</h4>
+
+                <!-- 待领取返佣 -->
+                <div class="p-3 rounded-xl" style="background: linear-gradient(135deg, rgba(167, 243, 208, 0.5) 0%, rgba(252, 231, 243, 0.5) 100%);">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600">待领取返佣</span>
+                        <button onclick="claimReward('invite')" class="btn-secondary px-4 py-1.5 text-xs font-medium rounded-lg">领取</button>
+                    </div>
+                    <div class="flex items-center justify-between mt-1">
+                        <div class="text-2xl font-bold gradient-green-text" id="invitePendingReward">--</div>
+                        <div class="text-xs text-gray-400">slisBNB · 下级销毁产生</div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between p-3 glass-subtle rounded-xl">
                         <div class="flex items-center gap-3">
                             <div class="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 text-xs font-bold">L1</div>
                             <div>
@@ -1474,16 +1487,21 @@
             try {
                 const lens = new ethers.Contract(CONTRACTS.LENS.address, CONTRACTS.LENS.abi, provider);
                 const stats = await lens.inviteStats(CONTRACTS.VAULT.address, userAddress);
-                
+
                 chainData.inviter = stats.inviter;
                 chainData.hasInviter = stats.hasInviter;
                 chainData.selfQualified = stats.selfQualified;
                 chainData.activationThreshold = stats.activationThresholdValue;
-                
-                // 更新邀请页
-                const threshold = parseFloat(formatEther(stats.activationThresholdValue, 0));
-                const burned = parseFloat(formatEther(stats.inviterBurnedAmount || 0, 0));
-                const progress = threshold > 0 ? Math.min((burned / threshold) * 100, 100) : 0;
+
+                // 更新邀请页 — 用用户自己的累计销毁量（而非上级的 inviterBurnedAmount）
+                const threshold = parseFloat(ethers.utils.formatEther(stats.activationThresholdValue, 0));
+                // 使用 chainData.userBurned（来自 distributor.burnInfo，更准确）
+                let myBurned = parseFloat(ethers.utils.formatEther(chainData.userBurned || 0, 0));
+                if (myBurned === 0 && stats.inviterBurnedAmount) {
+                    // 兜底：如果 userBurned 还没加载完，先用 Lens 的（注意这是上级数据源，仅作兜底）
+                    myBurned = parseFloat(ethers.utils.formatEther(stats.inviterBurnedAmount, 0));
+                }
+                const progress = threshold > 0 ? Math.min((myBurned / threshold) * 100, 100) : 0;
                 
                 // 使用新 ID 更新进度条和文本
                 const progressEl = document.getElementById('inviteThresholdProgress');
@@ -1491,7 +1509,7 @@
                 
                 const thresholdTextEl = document.getElementById('inviteThresholdText');
                 if (thresholdTextEl) {
-                    thresholdTextEl.innerHTML = `<span class="text-pink-600">${burned.toLocaleString()}</span> / ${threshold.toLocaleString()} REMIX`;
+                    thresholdTextEl.innerHTML = `<span class="text-pink-600">${myBurned.toLocaleString()}</span> / ${threshold.toLocaleString()} REMIX`;
                 }
                 
                 const activationDisplayEl = document.getElementById('inviteActivationThresholdDisplay');
@@ -1823,6 +1841,16 @@
                 
                 const inviteRewardEl = document.getElementById('inviteRewardAmount');
                 if (inviteRewardEl) inviteRewardEl.textContent = formatEther(pendingInviteReward, 4);
+
+                // 更新邀请页"待领取返佣"展示
+                const invitePendingEl = document.getElementById('invitePendingReward');
+                if (invitePendingEl) {
+                    if (!pendingInviteReward.isZero() && parseFloat(ethers.utils.formatEther(pendingInviteReward)) > 0) {
+                        invitePendingEl.textContent = formatEther(pendingInviteReward, 6);
+                    } else {
+                        invitePendingEl.textContent = '0';
+                    }
+                }
                 
                 // 更新销毁页统计
                 const userBurnedEl = document.getElementById('myCumulativeBurn');
@@ -1851,49 +1879,62 @@
             }
         }
         
-        // 从事件日志统计用户邀请数量和返佣
+        // 从事件日志统计用户邀请数量和返佣（扩大查询范围 + 已领取/可领取区分）
         async function loadUserInviteStats(distributor) {
             if (!userAddress) return;
             try {
                 const currentBlock = await provider.getBlockNumber();
-                const fromBlock = Math.max(0, currentBlock - 5000);
-                
+                // 扩大范围到 100,000 块（约 5.7 天历史）
+                const fromBlock = Math.max(0, currentBlock - 100000);
+
                 // 查询 L1 邀请（inviter == userAddress）
                 const filterL1 = distributor.filters.BurnProcessed(null, null, null, userAddress);
                 const l1Events = await distributor.queryFilter(filterL1, fromBlock, 'latest');
-                
+
                 // 查询 L2 邀请（inviter2 == userAddress）
                 const filterL2 = distributor.filters.BurnProcessed(null, null, null, null, null, userAddress);
                 const l2Events = await distributor.queryFilter(filterL2, fromBlock, 'latest');
-                
-                // 计算累计返佣
+
+                // 计算累计返佣（从事件中读取的是实际发放的奖励金额，即"已领取"部分）
                 let l1TotalReward = 0;
+                let l1TotalBurned = 0; // 下级总销毁量
                 for (const ev of l1Events) {
                     l1TotalReward += parseFloat(ethers.utils.formatEther(ev.args.inviterReward));
+                    l1TotalBurned += parseFloat(ethers.utils.formatEther(ev.args.actualBurnAmount || ev.args.inputAmount || 0));
                 }
                 let l2TotalReward = 0;
+                let l2TotalBurned = 0;
                 for (const ev of l2Events) {
                     l2TotalReward += parseFloat(ethers.utils.formatEther(ev.args.inviter2Reward));
+                    l2TotalBurned += parseFloat(ethers.utils.formatEther(ev.args.actualBurnAmount || ev.args.inputAmount || 0));
                 }
-                
+
                 // 更新 L1/L2 邀请数
                 const l1CountEl = document.getElementById('l1InviteCount');
                 if (l1CountEl) l1CountEl.textContent = l1Events.length;
-                
+
                 const l2CountEl = document.getElementById('l2InviteCount');
                 if (l2CountEl) l2CountEl.textContent = l2Events.length;
-                
-                // 更新返佣金额
+
+                // 更新返佣金额 — 格式化显示
+                const fmtReward = (val) => {
+                    if (val >= 10000) return '+' + (val / 10000).toFixed(1) + '万';
+                    if (val > 0) return '+' + val.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                    return '0';
+                };
+
                 const l1RewardEl = document.getElementById('l1RewardAmount');
                 if (l1RewardEl) {
-                    l1RewardEl.textContent = '+' + l1TotalReward.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                    l1RewardEl.textContent = fmtReward(l1TotalReward);
+                    l1RewardEl.title = `累计已领: ${l1TotalReward.toFixed(4)} slisBNB\n下级销毁: ${l1TotalBurned.toFixed(0)} REMIX`;
                 }
-                
+
                 const l2RewardEl = document.getElementById('l2RewardAmount');
                 if (l2RewardEl) {
-                    l2RewardEl.textContent = '+' + l2TotalReward.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                    l2RewardEl.textContent = fmtReward(l2TotalReward);
+                    l2RewardEl.title = `累计已领: ${l2TotalReward.toFixed(4)} slisBNB\n下级销毁: ${l2TotalBurned.toFixed(0)} REMIX`;
                 }
-                
+
             } catch (e) {
                 console.error('加载邀请统计失败:', e);
                 // 显示 0 而不是 --
@@ -2727,11 +2768,21 @@
                     results.push('销毁分红: 失败');
                 }
 
-                // ===== 4. 邀请返佣 — vault.claimInviteReward() =====
+                // ===== 4. 邀请返佣 — 双合约读取 + 双重领取保障 =====
                 try {
-                    const pendingInvite = await vault.pendingInviteReward(userAddress);
+                    const distContract = new ethers.Contract(CONTRACTS.BURN_DISTRIBUTOR.address, CONTRACTS.BURN_DISTRIBUTOR.abi, provider);
+                    let pendingInvite = await vault.pendingInviteReward(userAddress);
+                    // Vault 返回 0 时回退到 Distributor
+                    if (pendingInvite.isZero()) {
+                        try { pendingInvite = await distContract.pendingInviteReward(userAddress); } catch (e2) {}
+                    }
                     if (!pendingInvite.isZero() && parseFloat(ethers.utils.formatEther(pendingInvite)) > 0) {
-                        await vault.claimInviteReward();
+                        try {
+                            await vault.claimInviteReward();
+                        } catch (vaultErr) {
+                            console.warn('[一键-邀请] Vault失败，回退Distributor:', vaultErr.message?.slice(0, 60));
+                            await distContract.claimInviteRewardFor(userAddress);
+                        }
                         successCount++;
                         results.push('邀请返佣 ✓');
                     } else {
@@ -2813,18 +2864,42 @@
                     showToast('燃烧分红领取成功！🔥', 'success');
 
                 } else if (type === 'invite') {
-                    // 邀请返佣
+                    // 邀请返佣 — 双合约读取 + 双重领取保障
                     const vault = new ethers.Contract(CONTRACTS.VAULT.address, CONTRACTS.VAULT_ABI, signer);
+                    const distributor = new ethers.Contract(
+                        CONTRACTS.BURN_DISTRIBUTOR.address, CONTRACTS.BURN_DISTRIBUTOR.abi, signer
+                    );
+
                     let pendingAmount = ethers.BigNumber.from(0);
-                    try { pendingAmount = await vault.pendingInviteReward(userAddress); } catch (e) {}
+                    // 先从 Vault 查询（快捷方法）
+                    try { pendingAmount = await vault.pendingInviteReward(userAddress); } catch (e) {
+                        console.warn('[邀请] Vault查询失败，尝试Distributor:', e.message?.slice(0, 60));
+                    }
+                    // 如果 Vault 返回 0，再从 Distributor 直接查（权威数据源）
+                    if (pendingAmount.isZero()) {
+                        try { pendingAmount = await distributor.pendingInviteReward(userAddress); } catch (e2) {}
+                    }
+
                     const num = parseFloat(ethers.utils.formatEther(pendingAmount));
+                    console.log(`[邀请返佣] 待领取: ${num} slisBNB`);
+
                     if (num <= 0 || pendingAmount.isZero()) {
                         showToast('当前邀请返佣为 0\n下级用户销毁时产生返佣', 'info', 3000);
                         btn.textContent = originalText; btn.disabled = false; return;
                     }
-                    const tx = await vault.claimInviteReward();
-                    showToast('交易提交中...', 'info', 1500); await tx.wait();
-                    showToast('邀请返佣领取成功！🤝', 'success');
+
+                    // 尝试 Vault 级快捷领取
+                    try {
+                        const tx = await vault.claimInviteReward();
+                        showToast('交易提交中...', 'info', 1500); await tx.wait();
+                        showToast('邀请返佣领取成功！🤝', 'success');
+                    } catch (vaultErr) {
+                        console.warn('[邀请] Vault领取失败，尝试Distributor直接领:', vaultErr.message?.slice(0, 80));
+                        // 回退：直接从 Distributor 合约领取
+                        const tx2 = await distributor.claimInviteRewardFor(userAddress);
+                        showToast('交易提交中...', 'info', 1500); await tx2.wait();
+                        showToast('邀请返佣领取成功！🤝', 'success');
+                    }
 
                 } else {
                     showToast('未知奖励类型', 'error'); return;
