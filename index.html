@@ -370,7 +370,7 @@
                     </div>
                     <div class="bg-mint-50 rounded-xl p-3">
                         <div class="text-xs text-gray-500 mb-1">自动质押阈值</div>
-                        <div class="text-base font-semibold text-mint-600">0.1 BNB</div>
+                        <div class="text-base font-semibold text-mint-600" id="autoThresholdDisplay">0.01 BNB</div>
                     </div>
                     <div class="bg-amber-50 rounded-xl p-3">
                         <div class="text-xs text-gray-500 mb-1">我的持有</div>
@@ -1078,12 +1078,20 @@
                 // === 持币分红 (slisBNB 20%) ===
                 {"inputs":[],"name":"claim","outputs":[{"internalType":"uint256","name":"amount","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},
                 {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"pendingClaim","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+                {"inputs":[],"name":"pendingHolderSlis","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
                 // === 燃烧分红 ===
                 {"inputs":[],"name":"claimBurnReward","outputs":[],"stateMutability":"nonpayable","type":"function"},
                 {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"pendingBurnReward","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
                 // === 邀请返佣 ===
                 {"inputs":[],"name":"claimInviteReward","outputs":[],"stateMutability":"nonpayable","type":"function"},
                 {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"pendingInviteReward","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+                // === 综合查询 ===
+                {"inputs":[],"name":"overview","outputs":[
+                    {"internalType":"uint256","name":"myPendingHolderDividend","type":"uint256"},
+                    {"internalType":"uint256","name":"myPendingBurnDividend","type":"uint256"},
+                    {"internalType":"uint256","name":"myPendingInviteReward","type":"uint256"},
+                    {"internalType":"uint256","name":"myCumulativeBurned","type":"uint256"}
+                ],"stateMutability":"view","type":"function"},
                 // === 状态查询 ===
                 {"inputs":[],"name":"holderDividendContract","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
                 {"inputs":[],"name":"totalStakedBNB","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
@@ -1451,7 +1459,7 @@
                 // 更新触发质押区域的进度文本
                 const progressTextEl = document.getElementById('stakeProgressText');
                 if (progressTextEl) {
-                    progressTextEl.textContent = `当前: ${formatEther(stats.pendingTaxBNBAmount, 4)} BNB / 阈值: 0.1 BNB`;
+                    progressTextEl.textContent = `当前: ${formatEther(stats.pendingTaxBNBAmount, 4)} BNB / 阈值: ${STAKE_CONFIG.autoThreshold} BNB`;
                 }
                 
                 // 检查质押阈值
@@ -1481,32 +1489,59 @@
         async function loadUserStats() {
             if (!provider || !userAddress) return;
             try {
-                // ===== 方案：优先用 Vault 直接查询（更实时），Lens 做兜底 =====
                 const vault = new ethers.Contract(CONTRACTS.VAULT.address, CONTRACTS.VAULT_ABI, provider);
 
-                // --- slisBNB 持币分红 (20%) — 通过 Vault.pendingClaim() ---
+                // ====== 方法1: Vault 合约直接查询（实时）======
+                
+                // --- slisBNB 持币分红 (20%) — vault.pendingClaim(user) ---
                 let holderReward = ethers.BigNumber.from(0);
-                try { holderReward = await vault.pendingClaim(userAddress); } catch (e) { console.warn('[slisBNB持币] pendingClaim 失败:', e.message?.slice(0, 60)); }
+                try { holderReward = await vault.pendingClaim(userAddress); } catch (e) { console.warn('[slisBNB持币] pendingClaim 失败:', e.message?.slice(0, 80)); }
                 chainData.userRewards.holder = holderReward;
 
-                // --- 燃烧分红 — 通过 Vault.pendingBurnReward() ---
+                // --- 燃烧分红 ---
                 let burnReward = ethers.BigNumber.from(0);
-                try { burnReward = await vault.pendingBurnReward(userAddress); } catch (e) { console.warn('[燃烧分红] pendingBurnReward 失败:', e.message?.slice(0, 60)); }
+                try { burnReward = await vault.pendingBurnReward(userAddress); } catch (e) { console.warn('[燃烧分红] pendingBurnReward 失败:', e.message?.slice(0, 80)); }
                 chainData.userRewards.burn = burnReward;
 
-                // --- 邀请返佣 — 通过 Vault.pendingInviteReward() ---
+                // --- 邀请返佣 ---
                 let inviteReward = ethers.BigNumber.from(0);
-                try { inviteReward = await vault.pendingInviteReward(userAddress); } catch (e) { console.warn('[邀请返佣] pendingInviteReward 失败:', e.message?.slice(0, 60)); }
+                try { inviteReward = await vault.pendingInviteReward(userAddress); } catch (e) { console.warn('[邀请返佣] pendingInviteReward 失败:', e.message?.slice(0, 80)); }
                 chainData.userRewards.invite = inviteReward;
 
-                // Lens 兜底：获取 tokenBalance / cumulativeBurned / burnWeight 等辅助数据
+                // ====== 方法2: overview() 交叉验证（一次性拿到所有 pending 数据）======
+                try {
+                    const ov = await vault.overview();
+                    const ovHolder = ov.myPendingHolderDividend;   // myPendingHolderDividend
+                    const ovBurn = ov.myPendingBurnDividend;       // myPendingBurnDividend  
+                    const ovInvite = ov.myPendingInviteReward;     // myPendingInviteReward
+                    const ovBurned = ov.myCumulativeBurned;        // myCumulativeBurned
+
+                    console.log(`[=== 数据源对比 ===]`);
+                    console.log(`[对比] 持币分红: vault.pendingClaim=${ethers.utils.formatEther(holderReward||0)}, overview=${ethers.utils.formatEther(ovHolder||0)}, Lens=(稍后)`);
+                    console.log(`[对比] 销毁分红: vault.pendingBurnReward=${ethers.utils.formatEther(burnReward||0)}, overview=${ethers.utils.formatEther(ovBurn||0)}`);
+                    console.log(`[对比] 邀请返佣: vault.pendingInviteReward=${ethers.utils.formatEther(inviteReward||0)}, overview=${ethers.utils.formatEther(ovInvite||0)}`);
+                    
+                    // 如果 overview 返回的值更大（说明 pendingXxx 有缓存/延迟），用 overview 的值
+                    if (ovHolder && holderReward.lt(ovHolder)) {
+                        console.log(`[持币分红] ⚡ 用 overview 值覆盖（pendingClaim 可能延迟）`);
+                        holderReward = ovHolder;
+                        chainData.userRewards.holder = ovHolder;
+                    }
+                } catch (e2) {
+                    console.warn('[overview] 读取失败:', e2.message?.slice(0, 80));
+                }
+
+                // ====== 方法3: Lens 缓存数据（辅助：tokenBalance/cumulativeBurned/burnWeight）======
                 const lens = new ethers.Contract(CONTRACTS.LENS.address, CONTRACTS.LENS.abi, provider);
                 const stats = await lens.userStats(CONTRACTS.VAULT.address, userAddress);
                 chainData.userBurned = stats.cumulativeBurned;
                 chainData.burnWeight = stats.burnWeightValue;
                 chainData.userTokenBalance = stats.tokenBalance;
 
-                // ===== WBNB 持币分红 (1%) — 通过独立分红合约 =====
+                // Lens 持币分红值也打出来
+                console.log(`[对比] 持币分红-Lens: ${ethers.utils.formatEther(stats.pendingHolderRewardAmount || 0)} | 燃烧分红-Lens: ${ethers.utils.formatEther(stats.pendingBurnRewardAmount || 0)} | 邀请返佣-Lens: ${ethers.utils.formatEther(stats.pendingInviteRewardAmount || 0)}`);
+
+                // ====== WBNB 持币分红 (1%) — 通过独立分红合约 =====
                 let wbnbHolderReward = ethers.BigNumber.from(0);
                 try {
                     const divAddr = await vault.holderDividendContract();
@@ -1523,41 +1558,62 @@
                     if (wbnbEl) wbnbEl.textContent = '0';
                 }
                 
-                // 更新用户持有代币数量显示（中文格式）
+                // 更新用户持有代币数量显示
                 const tokenBalanceEl = document.getElementById('userTokenBalance');
                 if (tokenBalanceEl) {
                     const balance = parseFloat(ethers.utils.formatEther(stats.tokenBalance));
                     tokenBalanceEl.textContent = formatCN(balance, 1);
                 }
-                
-                // 更新收益页 — 总奖励（4项：WBNB持币 + slisBNB持币 + 销毁 + 邀请）
+
+                // 更新收益页 — 总奖励
                 const _wbnbRwd = (wbnbHolderReward && typeof wbnbHolderReward.add === 'function') ? wbnbHolderReward : ethers.BigNumber.from(0);
                 const totalRewards = parseFloat(formatEther(
                     _wbnbRwd
-                        .add(stats.pendingHolderRewardAmount)
-                        .add(stats.pendingBurnRewardAmount)
-                        .add(stats.pendingInviteRewardAmount)
+                        .add(chainData.userRewards.holder || 0)
+                        .add(chainData.userRewards.burn || 0)
+                        .add(chainData.userRewards.invite || 0)
                     , 4));
                 const totalRewardEl = document.getElementById('totalRewardAmount');
-                if (totalRewardEl) {
-                    totalRewardEl.textContent = '$' + totalRewards.toLocaleString();
-                }
+                if (totalRewardEl) totalRewardEl.textContent = '$' + totalRewards.toLocaleString();
                 
-                // 更新销毁页余额显示（中文格式）— 同时保存原始值供"最大"按钮使用
+                // 更新销毁页余额显示
                 const burnBalanceEl = document.getElementById('burnTokenBalance');
                 if (burnBalanceEl) {
                     const bal = parseFloat(ethers.utils.formatEther(stats.tokenBalance));
-                    _userRawTokenBalance = bal;  // 保存原始数值
+                    _userRawTokenBalance = bal;
                     burnBalanceEl.textContent = formatCN(bal, 1);
                 }
                 
-                // 更新各奖励卡片（4张卡片，nth-child 从2开始）
-                // card-2: slisBNB 持币分红 (amber)
-                document.querySelector('#page-rewards .space-y-3 > div:nth-child(2) .text-2xl.font-bold.text-amber-600').textContent = formatEther(stats.pendingHolderRewardAmount, 4);
-                // card-3: 销毁分红 (pink)
-                document.querySelector('#page-rewards .space-y-3 > div:nth-child(3) .text-2xl.font-bold.text-pink-600').textContent = formatEther(stats.pendingBurnRewardAmount, 4);
-                // card-4: 邀请返佣 (mint)
-                document.querySelector('#page-rewards .space-y-3 > div:nth-child(4) .text-2xl.font-bold.text-mint-600').textContent = formatEther(stats.pendingInviteRewardAmount, 4);
+                // ====== 更新各奖励卡片（使用 ID 选择器，不再依赖 nth-child）======
+                
+                // slisBNB 持币分红 (amber) — 三路数据取最大值
+                const holderRewardEl = document.getElementById('holderRewardAmount');
+                if (holderRewardEl) {
+                    const lensHolderValue = stats.pendingHolderRewardAmount;
+                    
+                    // 最终值：Vault直接 > overview > Lens，三选最大
+                    let finalHolder = chainData.userRewards.holder;
+                    if (lensHolderValue && finalHolder.lt(lensHolderValue)) finalHolder = lensHolderValue;
+                    
+                    const displayVal = finalHolder ? finalHolder.toString() : '0';
+                    holderRewardEl.textContent = formatEther(displayVal, 4);
+                    
+                    const num = parseFloat(ethers.utils.formatEther(displayVal));
+                    if (num > 0) {
+                        console.log(`✅ [slisBNB持币] 最终显示: ${formatEther(displayVal, 4)} slisBNB (来源: ${finalHolder === chainData.userRewards.holder ? 'vault' : 'Lens'})`);
+                    } else {
+                        console.log(`⚠️ [slisBNB持币] 所有数据源均为 0 → 合约层面无待领取记录`);
+                        holderRewardEl.title = '所有数据源(vault/Lens/overview)均为0\n合约可能尚未分配或已全部领取';
+                    }
+                }
+                
+                // 销毁分红 (pink)
+                const burnRewardEl = document.getElementById('burnRewardAmount');
+                if (burnRewardEl) burnRewardEl.textContent = formatEther(chainData.userRewards.burn || 0, 4);
+                
+                // 邀请返佣 (mint)
+                const inviteRewardEl = document.getElementById('inviteRewardAmount');
+                if (inviteRewardEl) inviteRewardEl.textContent = formatEther(chainData.userRewards.invite || 0, 4);
                 
                 // 更新销毁页统计
                 document.querySelector('#page-burn .text-xl.font-bold.text-pink-600').textContent = formatEther(stats.cumulativeBurned, 0);
