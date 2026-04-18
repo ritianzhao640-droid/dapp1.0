@@ -283,7 +283,7 @@
             <div class="card p-5 mt-4">
                 <h3 class="font-semibold text-gray-800 mb-4">可领取奖励</h3>
                 <div class="text-3xl font-bold gradient-green-text mb-4" id="totalRewardAmount">--</div>
-                <button class="btn-primary w-full py-3.5 text-base">一键领取全部</button>
+                <button class="btn-primary w-full py-3.5 text-base" onclick="claimAllRewards()">一键领取全部</button>
             </div>
 
             <!-- 三类奖励卡片 -->
@@ -1033,7 +1033,7 @@
             }
         }
 
-        // 读取 Lens 销毁统计
+        // 读取 Lens 销毁统计（仅读取数据到 chainData，不更新UI，避免竞态条件）
         async function loadBurnStats() {
             if (!provider) return;
             try {
@@ -1041,47 +1041,8 @@
                 const stats = await lens.burnGlobalStats(CONTRACTS.VAULT.address);
                 
                 chainData.totalBurned = stats.totalActualBurnedAmount;
+                // 注意：UI 更新统一由 loadBurnDistributorStats 负责
                 
-                // 更新总燃烧量显示
-                const burned = parseFloat(formatEther(stats.totalActualBurnedAmount, 0));
-                const burnedFormatted = burned.toLocaleString();
-                
-                // 更新总燃烧量卡片
-                const totalBurnedEl = document.getElementById('totalBurnedAmount');
-                if (totalBurnedEl) {
-                    totalBurnedEl.textContent = burnedFormatted;
-                }
-                
-                // 更新代币符号
-                const burnSymbolEl = document.getElementById('burnTokenSymbol');
-                if (burnSymbolEl) {
-                    burnSymbolEl.textContent = tokenInfo.symbol;
-                }
-                
-                // 更新已销毁文本
-                const burnedTextEl = document.getElementById('burnedText');
-                if (burnedTextEl) {
-                    burnedTextEl.textContent = `已销毁 ${burned >= 1000000 ? (burned / 1000000).toFixed(1) + 'M' : burnedFormatted}`;
-                }
-                
-                // 计算并更新通缩率
-                const deflationRateEl = document.getElementById('deflationRate');
-                const burnProgressEl = document.getElementById('burnProgressBar');
-                if (chainData.totalSupply > 0) {
-                    const deflationRate = (burned / parseFloat(ethers.utils.formatEther(chainData.totalSupply)) * 100).toFixed(2);
-                    if (deflationRateEl) {
-                        deflationRateEl.textContent = `通缩率 ${deflationRate}%`;
-                    }
-                    if (burnProgressEl) {
-                        burnProgressEl.style.width = Math.min(deflationRate, 100) + '%';
-                    }
-                }
-                
-                // 更新社区页总销毁量
-                const communityBurnEl = document.getElementById('communityTotalBurn');
-                if (communityBurnEl) {
-                    communityBurnEl.textContent = burned >= 1000000 ? (burned / 1000000).toFixed(1) + 'M' : burnedFormatted;
-                }
             } catch (e) {
                 console.error('加载销毁统计失败:', e);
             }
@@ -1261,6 +1222,12 @@
                 const totalBurnedEl = document.getElementById('totalBurnedAmount');
                 if (totalBurnedEl) totalBurnedEl.textContent = burnedFormatted;
                 
+                // 更新代币符号
+                const burnSymbolEl = document.getElementById('burnTokenSymbol');
+                if (burnSymbolEl) {
+                    burnSymbolEl.textContent = tokenInfo.symbol;
+                }
+                
                 const burnedTextEl = document.getElementById('burnedText');
                 if (burnedTextEl) {
                     burnedTextEl.textContent = `已销毁 ${burned >= 1000000 ? (burned / 1000000).toFixed(1) + 'M' : burnedFormatted}`;
@@ -1294,16 +1261,32 @@
             }
         }
         
-        // 从事件日志加载排行榜
+        // 从事件日志加载排行榜（优化版：扩大范围 + 重试）
         async function loadBurnLeaderboard(distributor, totalBurned) {
             const leaderboardEl = document.getElementById('burnLeaderboard');
             if (!leaderboardEl) return;
+            
             try {
-                // 获取最近 5000 个区块的 BurnProcessed 事件
                 const currentBlock = await provider.getBlockNumber();
-                const fromBlock = Math.max(0, currentBlock - 5000);
-                const filter = distributor.filters.BurnProcessed();
-                const events = await distributor.queryFilter(filter, fromBlock, 'latest');
+                
+                // 尝试从更早的区块开始查（最多回溯 50000 块 ≈ BSC 约 40 小时）
+                let events = [];
+                
+                for (const range of [50000, 10000, 5000]) {
+                    try {
+                        const fromBlock = Math.max(0, currentBlock - range);
+                        const filter = distributor.filters.BurnProcessed();
+                        const result = await Promise.race([
+                            distributor.queryFilter(filter, fromBlock, 'latest'),
+                            new Promise((_, reject) => setTimeout(() => reject(new Error('query timeout')), 8000))
+                        ]);
+                        events = result;
+                        if (events.length > 0 || range === 5000) break;
+                    } catch (e) {
+                        console.warn(`排行榜查询范围 ${range} 失败，尝试缩小范围:`, e.message);
+                        continue;
+                    }
+                }
                 
                 // 汇总每个地址的销毁量
                 const burnMap = {};
@@ -1319,7 +1302,12 @@
                     .slice(0, 3);
                 
                 if (sorted.length === 0) {
-                    leaderboardEl.innerHTML = '<div class="text-center text-gray-400 text-sm py-4">暂无销毁记录</div>';
+                    leaderboardEl.innerHTML = `
+                        <div class="text-center text-gray-400 text-sm py-6">
+                            <div class="text-3xl mb-2">🔥</div>
+                            <div>暂无销毁记录</div>
+                            <div class="text-xs mt-1">成为第一个销毁者吧！</div>
+                        </div>`;
                     return;
                 }
                 
@@ -1341,9 +1329,15 @@
                             </div>
                         </div>`;
                 }).join('');
+                
             } catch (e) {
                 console.error('加载排行榜失败:', e);
-                leaderboardEl.innerHTML = '<div class="text-center text-gray-400 text-sm py-4">排行榜数据加载失败</div>';
+                leaderboardEl.innerHTML = `
+                    <div class="text-center text-gray-400 text-sm py-6">
+                        <div class="text-xl mb-1">⚠️</div>
+                        <div>排行榜加载失败</div>
+                        <div class="text-xs mt-1">请稍后刷新重试</div>
+                    </div>`;
             }
         }
 
@@ -1460,23 +1454,42 @@
             }
         }
 
-        // 刷新所有数据
+        // 刷新所有数据（并行优化版）
         async function refreshAllData() {
-            await loadTokenSupply();
-            await loadGlobalStats();
-            await loadBurnStats();
-            await loadBurnDistributorStats();
-            await loadMarketingStats();
-            loadCommunityStats(); // 不阻塞，异步加载
+            // 第一批：无依赖的并行加载
+            const batch1 = Promise.allSettled([
+                loadTokenSupply(),
+                loadGlobalStats(),
+                loadBurnStats(),
+                loadMarketingStats()
+            ]);
+            
+            // 第二批：依赖第一批的部分（Distributor 读取 + 社区统计）
+            await batch1;
+            const batch2 = Promise.allSettled([
+                loadBurnDistributorStats(),   // 内含排行榜渲染
+                loadCommunityStats()          // BscScan + GeckoTerminal HTTP
+            ]);
+            await batch2;
+            
             // 更新公告系统变量
             CURRENT_TOTAL_BURN = parseFloat(ethers.utils.formatEther(chainData.totalBurned || 0));
             generateAnnouncements();
-            // 更新数据看板页
+            
+            // 第三批：数据看板页（复用已缓存的数据）
             await loadStatsPage();
+            
+            // 第四批：用户相关（需钱包连接）
             if (userAddress) {
-                await loadUserStats();
-                await loadInviteStats();
-                await loadUserBurnDistributorStats();
+                // 用户数据并行加载
+                await Promise.allSettled([
+                    loadUserStats(),
+                    loadInviteStats(),
+                    loadUserBurnDistributorStats()
+                ]);
+                
+                // 营销钱包 USD 等价金额更新（在所有余额读取完成后）
+                await updateMarketingUsdValue();
             }
         }
 
@@ -1930,6 +1943,62 @@
             } finally {
                 btn.textContent = '确认销毁';
                 btn.disabled = false;
+            }
+        }
+
+        // 一键领取全部奖励
+        async function claimAllRewards() {
+            if (!signer) {
+                alert('请先连接钱包');
+                return;
+            }
+            
+            try {
+                const distributor = new ethers.Contract(
+                    CONTRACTS.BURN_DISTRIBUTOR.address, 
+                    CONTRACTS.BURN_DISTRIBUTOR.abi, 
+                    signer
+                );
+                
+                let successCount = 0;
+                
+                // 1. 领取销毁分红
+                try {
+                    const tx1 = await distributor.claimBurnRewardFor(userAddress);
+                    await tx1.wait();
+                    successCount++;
+                } catch (e) {
+                    console.warn('销毁分红领取:', e.message);
+                }
+                
+                // 2. 领取邀请返佣
+                try {
+                    const tx2 = await distributor.claimInviteRewardFor(userAddress);
+                    await tx2.wait();
+                    successCount++;
+                } catch (e) {
+                    console.warn('邀请返佣领取:', e.message);
+                }
+                
+                // 3. 领取持币分红（通过 Vault 合约）
+                try {
+                    const vault = new ethers.Contract(CONTRACTS.VAULT.address, CONTRACTS.VAULT_ABI, signer);
+                    const tx3 = await vault.claim();
+                    await tx3.wait();
+                    successCount++;
+                } catch (e) {
+                    console.warn('持币分红领取（可能为0或未开放）:', e.message);
+                }
+                
+                if (successCount > 0) {
+                    alert(`成功领取 ${successCount} 项奖励！`);
+                    await refreshAllData();
+                } else if (successCount === 0) {
+                    alert('当前无可领取奖励，或领取失败。请检查余额后重试。');
+                }
+            } catch (error) {
+                console.error('一键领取失败:', error);
+                alert('一键领取失败: ' + error.message);
             }
         }
 
