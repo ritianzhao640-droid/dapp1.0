@@ -184,38 +184,39 @@
                     <span class="text-gray-500 text-sm">总质押价值</span>
                     <span class="px-2 py-1 bg-mint-100 text-mint-600 text-xs rounded-full font-medium">自动质押</span>
                 </div>
-                <div class="text-3xl font-bold gradient-green-text mb-1">$1,247,892</div>
-                <div class="text-sm text-gray-400">≈ 2,456.78 slisBNB</div>
-                <div class="mt-4 flex gap-3">
-                    <div class="flex-1 bg-pink-50 rounded-xl p-3">
+                <div class="text-3xl font-bold gradient-green-text mb-1" id="totalStakedValue">--</div>
+                <div class="text-sm text-gray-400" id="totalSlisAmount">≈ -- slisBNB</div>
+                <div class="mt-4 grid grid-cols-3 gap-2">
+                    <div class="bg-pink-50 rounded-xl p-3">
                         <div class="text-xs text-gray-500 mb-1">待质押 BNB</div>
-                        <div class="text-lg font-semibold text-pink-600" id="pendingBnb">12.45 BNB</div>
+                        <div class="text-base font-semibold text-pink-600" id="pendingBnb">--</div>
                     </div>
-                    <div class="flex-1 bg-mint-50 rounded-xl p-3">
+                    <div class="bg-mint-50 rounded-xl p-3">
                         <div class="text-xs text-gray-500 mb-1">自动质押阈值</div>
-                        <div class="text-lg font-semibold text-mint-600">0.1 BNB</div>
+                        <div class="text-base font-semibold text-mint-600">0.1 BNB</div>
+                    </div>
+                    <div class="bg-amber-50 rounded-xl p-3">
+                        <div class="text-xs text-gray-500 mb-1">我的持有</div>
+                        <div class="text-base font-semibold text-amber-600" id="userTokenBalance">--</div>
                     </div>
                 </div>
                 
-                <!-- 触发质押按钮 - 新增 -->
-                <div id="stakeTriggerSection" class="mt-4 p-4 bg-gradient-to-r from-pink-50 to-mint-50 rounded-xl border border-pink-100">
-                    <div class="flex items-center justify-between mb-3">
-                        <div>
-                            <div class="text-sm font-medium text-gray-800">触发质押</div>
-                            <div class="text-xs text-gray-500">将待质押 BNB 存入 Lista</div>
+                <!-- 触发质押按钮 - 缩小一半 -->
+                <div id="stakeTriggerSection" class="mt-3 p-2 bg-gradient-to-r from-pink-50 to-mint-50 rounded-lg border border-pink-100">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span id="stakeStatus" class="px-2 py-0.5 bg-amber-100 text-amber-600 text-xs rounded-full">待触发</span>
+                            <div class="text-xs text-gray-500">
+                                <span id="stakeProgressText">当前: -- BNB</span>
+                            </div>
                         </div>
-                        <span id="stakeStatus" class="px-2 py-1 bg-amber-100 text-amber-600 text-xs rounded-full">待触发</span>
+                        <button id="stakeBtn" onclick="triggerStake()" class="px-4 py-1.5 text-xs font-medium rounded-lg transition-all disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed btn-primary" disabled>
+                            触发质押
+                        </button>
                     </div>
-                    <div class="progress-bar mb-3">
-                        <div id="stakeProgress" class="progress-fill gradient-green" style="width: 100%"></div>
+                    <div class="progress-bar mt-2" style="height: 4px;">
+                        <div id="stakeProgress" class="progress-fill gradient-green" style="width: 0%"></div>
                     </div>
-                    <div class="flex justify-between text-xs text-gray-400 mb-3">
-                        <span>当前: 12.45 BNB</span>
-                        <span>阈值: 0.1 BNB</span>
-                    </div>
-                    <button id="stakeBtn" onclick="triggerStake()" class="w-full py-3 text-sm font-medium rounded-2xl transition-all disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed" disabled>
-                        立即触发质押
-                    </button>
                 </div>
             </div>
 
@@ -845,6 +846,7 @@
             totalSupply: 0,
             pendingTaxBNB: 0,
             totalStakedBNB: 0,
+            totalSlisReceived: 0,
             userRewards: {
                 holder: 0,
                 burn: 0,
@@ -852,6 +854,7 @@
             },
             userBurned: 0,
             burnWeight: 0,
+            userTokenBalance: 0,
             inviter: null,
             hasInviter: false,
             selfQualified: false,
@@ -982,6 +985,21 @@
             return num.toLocaleString('en-US', { maximumFractionDigits: decimals });
         }
 
+        // slisBNB 价格缓存
+        let slisBNBPrice = 0;
+        
+        // 获取 slisBNB 价格（从 Lista 或 PancakeSwap 获取）
+        async function getSlisBNBPrice() {
+            try {
+                // 简化处理：使用 BNB 价格作为近似（1 slisBNB ≈ 1 BNB）
+                // 实际项目中可以从价格预言机获取
+                return 1.0;
+            } catch (e) {
+                console.error('获取 slisBNB 价格失败:', e);
+                return 1.0;
+            }
+        }
+        
         // 读取 Lens 全局统计
         async function loadGlobalStats() {
             if (!provider) return;
@@ -991,9 +1009,36 @@
                 
                 chainData.pendingTaxBNB = stats.pendingTaxBNBAmount;
                 chainData.totalStakedBNB = stats.totalStakedBNBAmount;
+                chainData.totalSlisReceived = stats.totalSlisReceivedAmount;
                 
-                // 更新 UI
-                document.getElementById('pendingBnb').textContent = formatEther(stats.pendingTaxBNBAmount, 2) + ' BNB';
+                // 获取 slisBNB 价格并计算总价值
+                const price = await getSlisBNBPrice();
+                const totalSlis = parseFloat(formatEther(stats.totalSlisReceivedAmount, 4));
+                const totalValue = totalSlis * price;
+                
+                // 更新总质押价值显示
+                const totalValueEl = document.getElementById('totalStakedValue');
+                if (totalValueEl) {
+                    totalValueEl.textContent = '$' + totalValue.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                }
+                
+                // 更新 slisBNB 数量显示
+                const totalSlisEl = document.getElementById('totalSlisAmount');
+                if (totalSlisEl) {
+                    totalSlisEl.textContent = `≈ ${totalSlis.toLocaleString('en-US', { maximumFractionDigits: 2 })} slisBNB`;
+                }
+                
+                // 更新 UI - 待质押 BNB
+                const pendingBnbEl = document.getElementById('pendingBnb');
+                if (pendingBnbEl) {
+                    pendingBnbEl.textContent = formatEther(stats.pendingTaxBNBAmount, 4) + ' BNB';
+                }
+                
+                // 更新触发质押区域的进度文本
+                const progressTextEl = document.getElementById('stakeProgressText');
+                if (progressTextEl) {
+                    progressTextEl.textContent = `当前: ${formatEther(stats.pendingTaxBNBAmount, 4)} BNB / 阈值: 0.1 BNB`;
+                }
                 
                 // 检查质押阈值
                 STAKE_CONFIG.pendingBnb = parseFloat(formatEther(stats.pendingTaxBNBAmount, 4));
@@ -1046,6 +1091,20 @@
                 chainData.userRewards.invite = stats.pendingInviteRewardAmount;
                 chainData.userBurned = stats.cumulativeBurned;
                 chainData.burnWeight = stats.burnWeightValue;
+                chainData.userTokenBalance = stats.tokenBalance;
+                
+                // 更新用户持有代币数量显示
+                const tokenBalanceEl = document.getElementById('userTokenBalance');
+                if (tokenBalanceEl) {
+                    const balance = parseFloat(formatEther(stats.tokenBalance, 2));
+                    if (balance >= 1000000) {
+                        tokenBalanceEl.textContent = (balance / 1000000).toFixed(2) + 'M';
+                    } else if (balance >= 1000) {
+                        tokenBalanceEl.textContent = (balance / 1000).toFixed(2) + 'K';
+                    } else {
+                        tokenBalanceEl.textContent = balance.toLocaleString('en-US', { maximumFractionDigits: 2 });
+                    }
+                }
                 
                 // 更新收益页
                 const totalRewards = parseFloat(formatEther(
@@ -1431,23 +1490,23 @@
                 // 达到阈值
                 if (stakeStatus) {
                     stakeStatus.textContent = '可触发';
-                    stakeStatus.className = 'px-2 py-1 bg-mint-100 text-mint-600 text-xs rounded-full';
+                    stakeStatus.className = 'px-2 py-0.5 bg-mint-100 text-mint-600 text-xs rounded-full';
                 }
                 if (stakeBtn) {
                     stakeBtn.disabled = false;
-                    stakeBtn.textContent = '立即触发质押';
-                    stakeBtn.className = 'btn-primary w-full py-3 text-sm font-medium';
+                    stakeBtn.textContent = '触发质押';
+                    stakeBtn.className = 'px-4 py-1.5 text-xs font-medium rounded-lg btn-primary';
                 }
             } else {
                 // 未达到阈值
                 if (stakeStatus) {
                     stakeStatus.textContent = '未达阈值';
-                    stakeStatus.className = 'px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded-full';
+                    stakeStatus.className = 'px-2 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full';
                 }
                 if (stakeBtn) {
                     stakeBtn.disabled = true;
                     stakeBtn.textContent = `还需 ${(STAKE_CONFIG.threshold - STAKE_CONFIG.pendingBnb).toFixed(2)} BNB`;
-                    stakeBtn.className = 'w-full py-3 text-sm font-medium rounded-2xl bg-gray-100 text-gray-400 cursor-not-allowed';
+                    stakeBtn.className = 'px-4 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed';
                 }
             }
         }
