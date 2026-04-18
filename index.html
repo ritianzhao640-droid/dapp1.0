@@ -1547,20 +1547,45 @@
                     threshold = 1000000;
                 }
 
-                // 使用 chainData.userBurnedDisplay（来自 distributor.burnInfo，已转换为可读数值）
-                // 优先用已转换值；如果还没加载完（为0），则从原始值转换
-                let myBurned = chainData.userBurnedDisplay || 0;
-                if (myBurned === 0 && chainData.userBurned) {
+                // 使用用户自己的累计销毁量（必须是自己，不是上级的！）
+                // 策略：优先用已加载的 display 值；如果没有则直接从合约读取
+                let myBurned = 0;
+                
+                // 优先级1: loadUserBurnDistributorStats 已完成并设置了 userBurnedDisplay
+                if (chainData.userBurnedDisplay && chainData.userBurnedDisplay > 0) {
+                    myBurned = chainData.userBurnedDisplay;
+                }
+                // 优先级2: loadUserBurnDistributorStats 已设置原始值但还没转 display（并行竞态）
+                else if (chainData.userBurned && chainData.userBurned !== 0) {
                     try {
                         myBurned = parseFloat(ethers.utils.formatUnits(chainData.userBurned.toString(), 18));
                         if (!Number.isFinite(myBurned)) myBurned = 0;
                     } catch (e) { myBurned = 0; }
                 }
-                if (myBurned === 0 && stats.inviterBurnedAmount) {
-                    try { myBurned = parseFloat(ethers.utils.formatUnits(stats.inviterBurnedAmount, 18)); } catch (e) {}
-                    if (!Number.isFinite(myBurned)) myBurned = 0;
+                // 优先级3: 直接从 Distributor 合约读取（不依赖其他函数的执行顺序）
+                // 这解决了 Promise.allSettled 并行导致的竞态条件
+                else {
+                    try {
+                        const distContract = new ethers.Contract(
+                            CONTRACTS.BURN_DISTRIBUTOR.address,
+                            CONTRACTS.BURN_DISTRIBUTOR.abi,
+                            provider
+                        );
+                        const directBurnInfo = await distContract.burnInfo(userAddress);
+                        if (directBurnInfo && directBurnInfo.rawBurned && directBurnInfo.rawBurned !== 0) {
+                            myBurned = parseFloat(ethers.utils.formatUnits(directBurnInfo.rawBurned.toString(), 18));
+                            if (!Number.isFinite(myBurned)) myBurned = 0;
+                            // 缓存到 chainData，避免重复读取
+                            chainData.userBurned = directBurnInfo.rawBurned;
+                            chainData.userBurnedDisplay = myBurned;
+                        }
+                    } catch (e) {
+                        console.warn('[invite] 直接读取 burnInfo 失败（可能 distributor 还没初始化）:', e.message?.slice(0, 60));
+                    }
                 }
-                console.log('[invite] 进度条 myBurned:', myBurned, 'threshold:', threshold, '数据源:', chainData.userBurnedDisplay ? 'display(已转换)' : (chainData.userBurned ? 'rawBurned' : 'Lens兜底'));
+                // 注意：不再使用 stats.inviterBurnedAmount 作为兜底！
+                // 那是上级（inviter）的累计销毁量，不是用户自己的！
+                console.log('[invite] 进度条 myBurned:', myBurned, 'threshold:', threshold);
                 const progress = threshold > 0 ? Math.min((myBurned / threshold) * 100, 100) : 0;
                 
                 // 使用新 ID 更新进度条和文本
