@@ -482,6 +482,30 @@
                 <button class="btn-primary w-full py-3.5 text-base" onclick="claimAllRewards()">一键领取全部</button>
             </div>
 
+            <!-- 我的资产 -->
+            <div class="grid grid-cols-2 gap-3">
+                <div class="card p-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <div class="w-8 h-8 rounded-lg bg-pink-100 flex items-center justify-center">
+                            <svg class="w-4 h-4 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                        </div>
+                        <span class="text-xs text-gray-500">代币持有</span>
+                    </div>
+                    <div class="text-xl font-bold text-gray-800" id="rewardTokenBalance">--</div>
+                    <div class="text-xs text-gray-400 mt-0.5">REMIX</div>
+                </div>
+                <div class="card p-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                            <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </div>
+                        <span class="text-xs text-gray-500">slisBNB</span>
+                    </div>
+                    <div class="text-xl font-bold text-gray-800" id="rewardSlisBalance">--</div>
+                    <div class="text-xs text-gray-400 mt-0.5">来自质押收益</div>
+                </div>
+            </div>
+
             <!-- 四类奖励卡片 -->
             <div class="space-y-3">
                 <!-- WBNB 持币分红 (1%) -->
@@ -663,7 +687,34 @@
                     <p class="text-xs text-gray-400 mt-2">累计销毁达到 <span id="inviteActivationThresholdDisplay">--</span> REMIX 可激活邀请资格</p>
                 </div>
 
-                <!-- 我的邀请码 -->
+                <!-- 上级邀请人 / 绑定状态 -->
+                <div id="inviterBindingSection" class="rounded-xl p-4 mb-4 border" style="background: rgba(248,250,252,0.8); border-color: rgba(209,213,219,0.5);">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="text-sm text-gray-500">上级邀请人</div>
+                        <span id="inviterBindStatus" class="px-2 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full font-medium">未绑定</span>
+                    </div>
+                    <!-- 未燃烧：可编辑输入框 -->
+                    <div id="inviterEditable">
+                        <div class="flex gap-2">
+                            <input type="text" id="invitePageInviterInput" placeholder="填写上级地址（销毁前可修改）"
+                                   class="input-field flex-1 px-3 py-2.5 text-sm">
+                            <button onclick="saveInviterAddress()" id="saveInviterBtn"
+                                    class="btn-secondary px-3 py-2 text-sm whitespace-nowrap">保存</button>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1.5">⚠️ 成功销后代币后将终身绑定上级，不可更改</p>
+                    </div>
+                    <!-- 已燃烧/已绑定：只读显示 -->
+                    <div id="inviterLocked" style="display:none;">
+                        <div class="flex items-center gap-2 p-2.5 bg-gray-100 rounded-lg">
+                            <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                            <code id="boundInviterAddress" class="text-sm font-mono text-gray-700 flex-1 truncate">--</code>
+                            <span class="text-xs text-gray-400 whitespace-nowrap">已锁定</span>
+                        </div>
+                        <p class="text-xs text-amber-600 mt-1.5">🔒 上级地址已绑定，销毁后不可更改</p>
+                    </div>
+                </div>
+
+                <!-- 我的邀请链接 -->
                 <div class="bg-pink-50 rounded-xl p-4 mb-4">
                     <div class="text-sm text-gray-500 mb-2">我的邀请链接</div>
                     <div class="flex gap-2">
@@ -2008,6 +2059,48 @@
                     chainData.userBurnedDisplay = burnedNum;
                 }
 
+                // 更新上级邀请人绑定状态（邀请页 + 销毁页联动）
+                await updateInviterBindingState(burnInfo);
+
+                // 更新收益页"我的资产"卡片
+                try {
+                    // 1) REMIX 代币余额 — 来自 Lens userStats 或链上 balanceOf
+                    const tokenBalEl = document.getElementById('rewardTokenBalance');
+                    if (tokenBalEl) {
+                        let tokenBal = 0;
+                        if (chainData.userTokenBalance && !chainData.userTokenBalance.isZero()) {
+                            tokenBal = parseFloat(ethers.utils.formatEther(chainData.userTokenBalance));
+                        } else {
+                            // 兜底：直接查 ERC20
+                            const erc20Abi = [{'inputs':[{'name':'','type':'address'}],'name':'balanceOf','outputs':[{'type':'uint256'}],'stateMutability':'view','type':'function'}];
+                            const token = new ethers.Contract(CONTRACTS.TOKEN.address, erc20Abi, provider);
+                            const raw = await token.balanceOf(userAddress);
+                            tokenBal = parseFloat(ethers.utils.formatEther(raw));
+                        }
+                        tokenBalEl.textContent = formatCN(tokenBal, 2);
+                    }
+
+                    // 2) slisBNB 余额 — 通过 ERC20 balanceOf 查询用户持有量
+                    const slisBalEl = document.getElementById('rewardSlisBalance');
+                    if (slisBalEl) {
+                        try {
+                            const SLIS_BNB_ADDRESS = '0x1b0e7652f143c29832189136a3e6a3957c46a9ad';
+                            const erc20Abi = [{'inputs':[{'name':'','type':'address'}],'name':'balanceOf','outputs':[{'type':'uint256'}],'stateMutability':'view','type':'function'}];
+                            const slisToken = new ethers.Contract(SLIS_BNB_ADDRESS, erc20Abi, provider);
+                            const rawSlis = await slisToken.balanceOf(userAddress);
+                            const slisNum = parseFloat(ethers.utils.formatEther(rawSlis));
+                            console.log(`[assets] slisBNB余额: ${slisNum}`);
+                            slisBalEl.textContent = slisNum >= 0.0001 ? formatCN(slisNum, 4) : '<0.0001';
+                            slisBalEl.title = `${slisNum.toFixed(8)} slisBNB`;
+                        } catch (e2) {
+                            console.warn('[assets] slisBNB读取失败:', e2.message?.slice(0,60));
+                            slisBalEl.textContent = '--';
+                        }
+                    }
+                } catch (e3) {
+                    console.warn('[assets] 资产数据更新失败:', e3.message?.slice(0,60));
+                }
+
                 // 销毁权重计算（同样用 formatUnits 确保一致）
                 const burnWeightEl = document.querySelector('#page-burn .text-xl.font-bold.text-mint-600');
                 const burnRankEl = document.getElementById('myBurnRankText');
@@ -2034,44 +2127,222 @@
             }
         }
         
-        // 从事件日志统计用户邀请数量和返佣（扩大查询范围 + 已领取/可领取区分）
+        // ====== 上级邀请人绑定状态管理 ======
+        
+        // 更新邀请页的上级地址显示状态（根据链上 burnInfo 判断）
+        // 调用时机：loadUserBurnDistributorStats() 中读取到 burnInfo 后
+        async function updateInviterBindingState(burnInfo) {
+            const editableEl = document.getElementById('inviterEditable');
+            const lockedEl = document.getElementById('inviterLocked');
+            const statusEl = document.getElementById('inviterBindStatus');
+            const boundAddrEl = document.getElementById('boundInviterAddress');
+            const pageInput = document.getElementById('invitePageInviterInput');
+
+            if (!editableEl || !lockedEl || !statusEl || !boundAddrEl) return;
+
+            try {
+                const rawBurned = parseFloat(ethers.utils.formatUnits(burnInfo.rawBurned.toString(), 18));
+                const inviterAddr = burnInfo.inviter || ethers.constants.AddressZero;
+                const hasInviter = inviterAddr && inviterAddr !== ethers.constants.AddressZero;
+
+                console.log(`[inviter] rawBurned=${rawBurned}, inviter=${inviterAddr.slice(0,6)}..., hasInviter=${hasInviter}`);
+
+                if (rawBurned > 0 || hasInviter) {
+                    // === 已燃烧 或 已绑定 → 锁定模式 ===
+                    editableEl.style.display = 'none';
+                    lockedEl.style.display = 'block';
+
+                    // 整个区域灰化
+                    const sectionEl = document.getElementById('inviterBindingSection');
+                    if (sectionEl) {
+                        sectionEl.style.background = 'rgba(243,244,246,0.8)';
+                        sectionEl.style.borderColor = 'rgba(209,213,219,0.5)';
+                        sectionEl.style.opacity = '0.7';
+                    }
+
+                    if (hasInviter) {
+                        boundAddrEl.textContent = inviterAddr;
+                        boundAddrEl.title = inviterAddr;
+                        statusEl.textContent = '已绑定';
+                        statusEl.className = 'px-2 py-0.5 bg-green-100 text-green-600 text-xs rounded-full font-medium';
+                    } else {
+                        boundAddrEl.textContent = '（无上级）';
+                        statusEl.textContent = '已燃烧未绑定';
+                        statusEl.className = 'px-2 py-0.5 bg-amber-100 text-amber-600 text-xs rounded-full font-medium';
+                    }
+
+                    // 同步更新销毁页的邀请人输入框（只读+灰化）
+                    const burnInput = document.getElementById('inviterAddressInput');
+                    if (burnInput) {
+                        burnInput.value = hasInviter ? inviterAddr : '';
+                        burnInput.readOnly = true;
+                        burnInput.disabled = true;
+                        burnInput.style.background = '#f3f4f6';
+                        burnInput.style.cursor = 'not-allowed';
+                    }
+                    const burnHint = document.getElementById('inviterHint');
+                    if (burnHint) {
+                        burnHint.textContent = hasInviter ? '已绑定上级，不可修改' : '已销毁但未绑定上级';
+                    }
+
+                } else {
+                    // === 未燃烧 → 可编辑模式 ===
+                    editableEl.style.display = 'block';
+                    lockedEl.style.display = 'none';
+
+                    const sectionEl = document.getElementById('inviterBindingSection');
+                    if (sectionEl) {
+                        sectionEl.style.background = 'rgba(248,250,252,0.8)';
+                        sectionEl.style.borderColor = 'rgba(209,213,219,0.5)';
+                        sectionEl.style.opacity = '1';
+                    }
+                    statusEl.textContent = '未绑定';
+                    statusEl.className = 'px-2 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full font-medium';
+
+                    // 从 sessionStorage 恢复之前填写的值
+                    if (pageInput && !pageInput.value) {
+                        const stored = getStoredRefAddress();
+                        if (stored) pageInput.value = stored;
+                    }
+
+                    // 确保销毁页输入框可编辑
+                    const burnInput = document.getElementById('inviterAddressInput');
+                    if (burnInput) {
+                        burnInput.readOnly = false;
+                        burnInput.disabled = false;
+                        burnInput.style.background = '';
+                        burnInput.style.cursor = '';
+                    }
+                    const burnHint = document.getElementById('inviterHint');
+                    if (burnHint) {
+                        burnHint.textContent = '填写邀请人可获得额外返佣奖励（L1:10% / L2:5%）';
+                    }
+                }
+            } catch (e) {
+                console.warn('[inviter] 绑定状态更新失败:', e.message?.slice(0, 60));
+            }
+        }
+
+        // 保存上级地址（从邀请页输入框 → 同步到 sessionStorage + 销毁页输入框）
+        function saveInviterAddress() {
+            const pageInput = document.getElementById('invitePageInviterInput');
+            if (!pageInput) return;
+
+            const val = pageInput.value.trim();
+
+            if (!val) {
+                showToast('请输入有效的地址', 'warning', 2000);
+                return;
+            }
+
+            if (!val.startsWith('0x') || val.length !== 42) {
+                showToast('请输入正确的 42 位钱包地址', 'warning', 2000);
+                return;
+            }
+
+            // 不能填自己的地址
+            if (userAddress && val.toLowerCase() === userAddress.toLowerCase()) {
+                showToast('不能填写自己的地址作为上级', 'warning', 2000);
+                return;
+            }
+
+            // 存储到 sessionStorage
+            try { sessionStorage.setItem('_ref_addr', val); } catch(e) {}
+
+            // 同步到销毁页输入框
+            const burnInput = document.getElementById('inviterAddressInput');
+            if (burnInput) burnInput.value = val;
+
+            showToast('✅ 上级地址已保存\n销毁时将使用此地址', 'success', 2500);
+            console.log(`[inviter] 用户手动保存上级: ${val.slice(0,6)}...${val.slice(-4)}`);
+        }
+
+        // 从事件日志统计用户邀请数量和返佣
+        // 数据源：Distributor 合约的 BurnProcessed 事件（唯一可靠来源，合约无 getDownlineList 方法）
+        //
+        // BurnProcessed 事件字段：
+        //   user(address), inputAmount(uint256), actualBurnAmount(uint256),
+        //   inviter(address, indexed), inviterReward(uint256),
+        //   inviter2(address, indexed), inviter2Reward(uint256)
         async function loadUserInviteStats(distributor) {
             if (!userAddress) return;
-            try {
-                const currentBlock = await provider.getBlockNumber();
-                // 扩大范围到 100,000 块（约 5.7 天历史）
-                const fromBlock = Math.max(0, currentBlock - 100000);
 
-                // 查询 L1 邀请（inviter == userAddress）
-                const filterL1 = distributor.filters.BurnProcessed(null, null, null, userAddress);
-                const l1Events = await distributor.queryFilter(filterL1, fromBlock, 'latest');
-
-                // 查询 L2 邀请（inviter2 == userAddress）
-                const filterL2 = distributor.filters.BurnProcessed(null, null, null, null, null, userAddress);
-                const l2Events = await distributor.queryFilter(filterL2, fromBlock, 'latest');
-
-                // 计算累计返佣（从事件中读取的是实际发放的奖励金额，即"已领取"部分）
-                let l1TotalReward = 0;
-                let l1TotalBurned = 0; // 下级总销毁量
-                for (const ev of l1Events) {
-                    l1TotalReward += parseFloat(ethers.utils.formatEther(ev.args.inviterReward));
-                    l1TotalBurned += parseFloat(ethers.utils.formatEther(ev.args.actualBurnAmount || ev.args.inputAmount || 0));
+            // 辅助函数：多范围查询事件（避免 RPC 超时）
+            async function queryWithFallback(filter, ranges) {
+                let events = [];
+                for (const range of ranges) {
+                    try {
+                        const currentBlock = await provider.getBlockNumber();
+                        const fromBlock = Math.max(0, currentBlock - range);
+                        const result = await Promise.race([
+                            distributor.queryFilter(filter, fromBlock, 'latest'),
+                            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000))
+                        ]);
+                        events = result;
+                        console.log(`[inviteStats] 范围 ${range} 块, 找到 ${events.length} 条`);
+                        if (events.length > 0 || range <= 50000) break;
+                    } catch (e) {
+                        console.warn(`[inviteStats] 范围 ${range} 失败:`, e.message?.slice(0, 80));
+                    }
                 }
+                return events;
+            }
+
+            try {
+                // 多级回退策略：从大到小逐步缩小范围（最大 500K 块 ≈ 28 天）
+                const ranges = [500000, 200000, 100000, 50000];
+
+                // 查询 L1 邀请（inviter == userAddress）— 我是上级，下级销毁我拿 10%
+                const filterL1 = distributor.filters.BurnProcessed(null, null, null, userAddress);
+                const l1Events = await queryWithFallback(filterL1, ranges);
+
+                // 查询 L2 邀请（inviter2 == userAddress）— 我间接邀请的人销毁，我拿 5%
+                const filterL2 = distributor.filters.BurnProcessed(null, null, null, null, null, userAddress);
+                const l2Events = await queryWithFallback(filterL2, ranges);
+
+                // 统计 L1 数据
+                let l1TotalReward = 0;   // 下级销毁产生的 L1 返佣总额（slisBNB）
+                let l1TotalBurned = 0;    // 所有直接下级的总销毁量（REMIX）
+                const l1UniqueUsers = new Set(); // 去重后的 L1 邀请人数
+                for (const ev of l1Events) {
+                    const reward = parseFloat(ethers.utils.formatEther(ev.args.inviterReward));
+                    // actualBurnAmount 是实际进入销毁池的金额（扣除 L1+L2 返佣后的 85%）
+                    const burned = parseFloat(ethers.utils.formatEther(ev.args.actualBurnAmount));
+                    l1TotalReward += reward;
+                    l1TotalBurned += burned;
+                    if (ev.args.user) l1UniqueUsers.add(ev.args.user.toLowerCase());
+                }
+
+                // 统计 L2 数据
                 let l2TotalReward = 0;
                 let l2TotalBurned = 0;
+                const l2UniqueUsers = new Set();
                 for (const ev of l2Events) {
-                    l2TotalReward += parseFloat(ethers.utils.formatEther(ev.args.inviter2Reward));
-                    l2TotalBurned += parseFloat(ethers.utils.formatEther(ev.args.actualBurnAmount || ev.args.inputAmount || 0));
+                    const reward = parseFloat(ethers.utils.formatEther(ev.args.inviter2Reward));
+                    const burned = parseFloat(ethers.utils.formatEther(ev.args.actualBurnAmount));
+                    l2TotalReward += reward;
+                    l2TotalBurned += burned;
+                    if (ev.args.user) l2UniqueUsers.add(ev.args.user.toLowerCase());
                 }
 
-                // 更新 L1/L2 邀请数
+                // 注意：l1UniqueUsers 和 l2Events.length 的区别：
+                //   - l1UniqueUsers.size = 去重后的唯一 L1 下级人数（更准确）
+                //   - l1Events.length = L1 下级销毁总次数（可能同一人多次销毁）
+                // 这里显示"人数"用去重值，但保留事件数用于调试
+
+                console.log(`[inviteStats] L1: ${l1UniqueUsers.size} 人/${l1Events.length} 次, 返佣=${l1TotalReward.toFixed(4)} sBNB, 销毁=${l1TotalBurned.toFixed(0)} REMIX`);
+                console.log(`[inviteStats] L2: ${l2UniqueUsers.size} 人/${l2Events.length} 次, 返佣=${l2TotalReward.toFixed(4)} sBNB, 销毁=${l2TotalBurned.toFixed(0)} REMIX`);
+
+                // ====== 更新 DOM ======
+
+                // L1 / L2 邀请人数（去重后的唯一地址数）
                 const l1CountEl = document.getElementById('l1InviteCount');
-                if (l1CountEl) l1CountEl.textContent = l1Events.length;
+                if (l1CountEl) l1CountEl.textContent = l1UniqueUsers.size.toString();
 
                 const l2CountEl = document.getElementById('l2InviteCount');
-                if (l2CountEl) l2CountEl.textContent = l2Events.length;
+                if (l2CountEl) l2CountEl.textContent = l2UniqueUsers.size.toString();
 
-                // 更新返佣金额 — 格式化显示
+                // 返佣金额格式化
                 const fmtReward = (val) => {
                     if (val >= 10000) return '+' + (val / 10000).toFixed(1) + '万';
                     if (val > 0) return '+' + val.toLocaleString('en-US', { maximumFractionDigits: 0 });
@@ -2081,17 +2352,28 @@
                 const l1RewardEl = document.getElementById('l1RewardAmount');
                 if (l1RewardEl) {
                     l1RewardEl.textContent = fmtReward(l1TotalReward);
-                    l1RewardEl.title = `累计已领: ${l1TotalReward.toFixed(4)} slisBNB\n下级销毁: ${l1TotalBurned.toFixed(0)} REMIX`;
+                    // tooltip 显示详细信息（注意：这是事件查询范围内的数据）
+                    l1RewardEl.title =
+                        `近28天 L1 返佣: ${l1TotalReward.toFixed(4)} slisBNB\n` +
+                        `L1 下级人数: ${l1UniqueUsers.size} 人\n` +
+                        `L1 下级销毁次数: ${l1Events.length} 次\n` +
+                        `L1 下级总销毁量: ${l1TotalBurned.toFixed(0)} REMIX\n` +
+                        `(比例: 直接下级销毁额的10%)`;
                 }
 
                 const l2RewardEl = document.getElementById('l2RewardAmount');
                 if (l2RewardEl) {
                     l2RewardEl.textContent = fmtReward(l2TotalReward);
-                    l2RewardEl.title = `累计已领: ${l2TotalReward.toFixed(4)} slisBNB\n下级销毁: ${l2TotalBurned.toFixed(0)} REMIX`;
+                    l2RewardEl.title =
+                        `近28天 L2 返佣: ${l2TotalReward.toFixed(4)} slisBNB\n` +
+                        `L2 下级人数: ${l2UniqueUsers.size} 人\n` +
+                        `L2 下级销毁次数: ${l2Events.length} 次\n` +
+                        `L2 下级总销毁量: ${l2TotalBurned.toFixed(0)} REMIX\n` +
+                        `(比例: 间接下级销毁额的5%)`;
                 }
 
             } catch (e) {
-                console.error('加载邀请统计失败:', e);
+                console.error('[inviteStats] 加载失败:', e);
                 // 显示 0 而不是 --
                 ['l1InviteCount', 'l2InviteCount'].forEach(id => {
                     const el = document.getElementById(id);
