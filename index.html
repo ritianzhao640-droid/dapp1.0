@@ -1160,20 +1160,55 @@
         }
 
         // 读取营销钱包统计
+        // 读取营销钱包 slisBNB 余额（Lens + ERC20 双重保障）
         async function loadMarketingStats() {
             if (!provider) return;
             try {
                 const lens = new ethers.Contract(CONTRACTS.LENS.address, CONTRACTS.LENS.abi, provider);
                 const stats = await lens.marketingStats(CONTRACTS.VAULT.address);
-                
-                // 更新社区页营销钱包 slisBNB 余额
-                document.getElementById('marketingSlisBalance').textContent = formatEther(stats.marketingWalletBalance, 2);
-                
-                // 更新 USD 等价金额
+
+                const el = document.getElementById('marketingSlisBalance');
+                const balance = parseFloat(ethers.utils.formatEther(stats.marketingWalletBalance || 0));
+
+                if (el) {
+                    if (balance < 0.0001 && balance > 0) {
+                        el.textContent = '<0.0001';
+                    } else {
+                        el.textContent = formatEther(stats.marketingWalletBalance, 4);
+                    }
+                }
+
                 await updateMarketingUsdValue();
-                
+
             } catch (e) {
-                console.error('加载营销统计失败:', e);
+                console.warn('Lens marketingStats 失败，尝试直接读取 ERC20 余额:', e);
+                await _fallbackMarketingSlis();
+            }
+        }
+
+        // 兜底：通过 ERC20 balanceOf 直接查询多签钱包的 slisBNB 持有量
+        async function _fallbackMarketingSlis() {
+            if (!provider) return;
+            try {
+                const SLIS_BNB_ADDRESS = '0x1b0e7652f143c29832189136a3e6a3957c46a9ad';
+                const erc20Abi = [{"inputs":[{"name":"","type":"address"}],"name":"balanceOf","outputs":[{"type":"uint256"}],"stateMutability":"view","type":"function"}];
+                const slisToken = new ethers.Contract(SLIS_BNB_ADDRESS, erc20Abi, provider);
+                const balance = await slisToken.balanceOf(CONTRACTS.MULTISIG.address);
+
+                const el = document.getElementById('marketingSlisBalance');
+                if (el) {
+                    const balNum = parseFloat(ethers.utils.formatEther(balance));
+                    if (balNum < 0.0001 && balNum > 0) {
+                        el.textContent = '<0.0001';
+                    } else {
+                        el.textContent = formatEther(balance, 4);
+                    }
+                }
+                await updateMarketingUsdValue();
+            } catch (e2) {
+                console.error('ERC20 兜底读取也失败:', e2);
+                const el = document.getElementById('marketingSlisBalance');
+                if (el) el.textContent = '获取失败';
             }
         }
 
