@@ -1585,23 +1585,27 @@
 
         // 页面加载时初始化
         document.addEventListener('DOMContentLoaded', () => {
-            updateBurnPreview();
-            generateAnnouncements();
-            loadMarketingWallet();
-            checkStakeThreshold();
-            
-            // 检查 URL 参数并自动填充邀请地址
-            checkAndFillInviter();
-            
-            // 如果已有 provider，自动刷新数据
-            if (typeof window.ethereum !== 'undefined') {
-                provider = new ethers.providers.Web3Provider(window.ethereum);
-                // 先加载代币信息
-                loadTokenInfo();
-                refreshAllData();
-            } else {
-                // 没有钱包也尝试加载代币信息（使用默认配置）
-                loadTokenInfo();
+            try {
+                updateBurnPreview();
+                generateAnnouncements();
+                checkStakeThreshold();
+                
+                // 检查 URL 参数并自动填充邀请地址
+                checkAndFillInviter();
+                
+                // 如果已有 provider，自动刷新数据
+                if (typeof window.ethereum !== 'undefined') {
+                    provider = new ethers.providers.Web3Provider(window.ethereum);
+                    // 先加载代币信息
+                    loadTokenInfo();
+                    refreshAllData();
+                    loadMarketingWallet();
+                } else {
+                    // 没有钱包也尝试加载代币信息（使用默认配置）
+                    loadTokenInfo();
+                }
+            } catch (error) {
+                console.error('页面初始化失败:', error);
             }
         });
     </script>
