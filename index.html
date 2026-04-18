@@ -1612,7 +1612,7 @@
                 
                 // ====== 更新各奖励卡片（使用 ID 选择器，不再依赖 nth-child）======
                 
-                // slisBNB 持币分红 (amber) — 三路数据取最大值
+                // slisBNB 持币分红 (amber) — 三路数据取最大值 + 合理性校验
                 const holderRewardEl = document.getElementById('holderRewardAmount');
                 if (holderRewardEl) {
                     const lensHolderValue = stats.pendingHolderRewardAmount;
@@ -1621,28 +1621,37 @@
                     let finalHolder = chainData.userRewards.holder;
                     if (lensHolderValue && finalHolder.lt(lensHolderValue)) finalHolder = lensHolderValue;
                     
-                    const displayVal = finalHolder ? finalHolder.toString() : '0';
+                    const rawVal = finalHolder ? finalHolder.toString() : '0';
+                    const num = parseFloat(ethers.utils.formatEther(rawVal));
                     
-                    // 智能格式化：正常值用小数，超大值自动切中文单位/科学计数法
-                    holderRewardEl.textContent = formatReward(displayVal, 4);
+                    // 合理性校验：单用户持币分红不可能超过总 slisBNB 收入
+                    const maxReasonable = chainData.totalSlisReceived || ethers.BigNumber.from(0);
+                    const maxNum = parseFloat(ethers.utils.formatEther(maxReasonable.toString()));
                     
-                    const num = parseFloat(ethers.utils.formatEther(displayVal));
-                    // 异常大值警告（超过 100亿 slisBNB 可能是合约数据问题）
-                    if (num > 10000000000) {
-                        console.warn(`⚠️ [slisBNB持币] 数值异常偏大: ${num.toLocaleString()} — 合约可能返回了原始未转换的值或存在精度配置差异`);
-                        holderRewardEl.title = `原始值: ${displayVal}\n换算后: ${num.toLocaleString()} slisBNB\n⚠️ 该数值异常偏大，请确认合约 decimals 配置`;
-                        holderRewardEl.classList.add('text-orange-500');
-                        holderRewardEl.classList.remove('text-amber-600');
+                    // 判定异常的条件：数值 > 总收入的100倍（留余量），或 > 10亿 slisBNB
+                    const isAbnormal = (maxNum > 0 && num > maxNum * 100) || num > 1e9;
+                    
+                    if (isAbnormal && num > 0) {
+                        console.error(`🚨 [slisBNB持币] 数据异常！用户待领=${num.toExponential(2)}, 总收入仅≈${maxNum.toFixed(2)} slisBNB`);
+                        holderRewardEl.textContent = '⚠️ 数据异常';
+                        holderRewardEl.title = `原始值: ${rawVal}\n换算后: ${num.toExponential(6)} slisBNB\n总slisBNB收入: ≈${maxNum.toFixed(4)}\n\n⚠️ 用户分红不可能超过总收入\n合约可能存在精度配置问题`;
+                        holderRewardEl.classList.add('text-red-500', 'text-lg', 'font-bold');
+                        holderRewardEl.classList.remove('text-amber-600', 'text-2xl');
+                        holderRewardEl.closest('.card')?.classList.add('border-red-300', 'bg-red-50');
                     } else if (num > 0) {
-                        console.log(`✅ [slisBNB持币] 最终显示: ${formatReward(displayVal, 4)} slisBNB (来源: ${finalHolder === chainData.userRewards.holder ? 'vault' : 'Lens'})`);
+                        holderRewardEl.textContent = formatReward(rawVal, 4);
+                        console.log(`✅ [slisBNB持币] 最终显示: ${formatReward(rawVal, 4)} slisBNB (来源: ${finalHolder === chainData.userRewards.holder ? 'vault' : 'Lens'})`);
                         holderRewardEl.title = '';
-                        holderRewardEl.classList.remove('text-orange-500');
-                        holderRewardEl.classList.add('text-amber-600');
+                        holderRewardEl.classList.remove('text-orange-500', 'text-red-500', 'text-lg');
+                        holderRewardEl.classList.add('text-amber-600', 'text-2xl');
+                        holderRewardEl.closest('.card')?.classList.remove('border-red-300', 'bg-red-50');
                     } else {
+                        holderRewardEl.textContent = '0';
                         console.log(`⚠️ [slisBNB持币] 所有数据源均为 0 → 合约层面无待领取记录`);
                         holderRewardEl.title = '所有数据源(vault/Lens/overview)均为0\n合约可能尚未分配或已全部领取';
-                        holderRewardEl.classList.remove('text-orange-500');
-                        holderRewardEl.classList.add('text-amber-600');
+                        holderRewardEl.classList.remove('text-orange-500', 'text-red-500', 'text-lg');
+                        holderRewardEl.classList.add('text-amber-600', 'text-2xl');
+                        holderRewardEl.closest('.card')?.classList.remove('border-red-300', 'bg-red-50');
                     }
                 }
                 
