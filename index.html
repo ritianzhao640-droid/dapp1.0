@@ -61,7 +61,11 @@
         .gradient-green-text {
             background: linear-gradient(135deg, #16a34a 0%, #059669 100%);
             -webkit-background-clip: text;
+            -moz-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
+            -moz-text-fill-color: transparent;
+            color: #16a34a; /* 备用颜色，当背景裁剪不支持时显示 */
         }
 
         /* 粉色渐变 — 加深 */
@@ -1457,13 +1461,26 @@
                 // 更新总质押价值显示
                 const totalValueEl = document.getElementById('totalStakedValue');
                 if (totalValueEl) {
-                    totalValueEl.textContent = '$' + totalValue.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                    // 调试日志
+                    console.log('[总质押价值] price:', price, 'totalSlis:', totalSlis, 'totalValue:', totalValue, 'isNaN:', isNaN(totalValue));
+                    if (isNaN(totalValue) || totalValue <= 0) {
+                        totalValueEl.textContent = '--';
+                        console.warn('[总质押价值] 计算值异常，显示为 --');
+                    } else {
+                        totalValueEl.textContent = '$' + totalValue.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                    }
                 }
                 
                 // 更新 slisBNB 数量显示
                 const totalSlisEl = document.getElementById('totalSlisAmount');
                 if (totalSlisEl) {
-                    totalSlisEl.textContent = `≈ ${totalSlis.toLocaleString('en-US', { maximumFractionDigits: 2 })} slisBNB`;
+                    // 调试日志
+                    console.log('[总质押slisBNB] raw:', stats.totalSlisReceivedAmount, 'parsed:', totalSlis, 'isNaN:', isNaN(totalSlis));
+                    if (isNaN(totalSlis) || totalSlis <= 0) {
+                        totalSlisEl.textContent = '≈ -- slisBNB';
+                    } else {
+                        totalSlisEl.textContent = `≈ ${totalSlis.toLocaleString('en-US', { maximumFractionDigits: 2 })} slisBNB`;
+                    }
                 }
                 
                 // 更新 UI - 待质押 BNB
@@ -1599,8 +1616,15 @@
                         .add(chainData.userRewards.burn || 0)
                         .add(chainData.userRewards.invite || 0)
                     , 4));
+                console.log('[总奖励计算] wbnb:', _wbnbRwd.toString(), 'holder:', chainData.userRewards.holder?.toString(), 'burn:', chainData.userRewards.burn?.toString(), 'invite:', chainData.userRewards.invite?.toString(), 'total:', totalRewards);
                 const totalRewardEl = document.getElementById('totalRewardAmount');
-                if (totalRewardEl) totalRewardEl.textContent = '$' + totalRewards.toLocaleString();
+                if (totalRewardEl) {
+                    if (isNaN(totalRewards) || totalRewards <= 0) {
+                        totalRewardEl.textContent = '--';
+                    } else {
+                        totalRewardEl.textContent = '$' + totalRewards.toLocaleString();
+                    }
+                }
                 
                 // 更新销毁页余额显示
                 const burnBalanceEl = document.getElementById('burnTokenBalance');
@@ -1960,6 +1984,7 @@
 
         // 燃烧排行榜（严格按累计销毁量排序）
         async function loadBurnLeaderboard(distributor, totalBurned) {
+            console.log('[燃烧排行榜] 开始加载，totalBurned:', totalBurned);
             const leaderboardEl = document.getElementById('burnLeaderboard');
             if (!leaderboardEl) return;
 
@@ -1987,6 +2012,7 @@
                 }
 
                 if (events.length === 0) {
+                    console.warn('[燃烧排行榜] 未找到任何销毁事件，显示空状态');
                     leaderboardEl.innerHTML = `
                         <div class="text-center text-gray-400 text-sm py-6">
                             <div class="text-3xl mb-2">🔥</div>
